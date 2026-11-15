@@ -309,7 +309,7 @@ button.chip:hover{background:var(--accent-soft);color:var(--accent)}
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f3f5f9" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0b1020" media="(prefers-color-scheme: dark)">
-<script>window.__web="112";</script>
+<script>window.__web="113";</script>
 </head>
 <body>
 <div class="wrap">
@@ -3693,7 +3693,7 @@ function pc(x,d){d=d==null?2:d;return x.toLocaleString('de-DE',{minimumFractionD
 
 const KEY='vermoegensfabrik-v2';
 // Versionsnummer, bei jeder Veröffentlichung hochzählen (bauen-web.sh liest sie hier)
-const VF_VERSION='112';
+const VF_VERSION='113';
 const $=id=>document.getElementById(id);
 const TAB_ICONS={
   uebers:'M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z',
@@ -4668,14 +4668,21 @@ function decCard(){
     d.opts.map(o=>'<div class="decopt"><button class="btn'+(o.k===d.opts[0].k?' pri':'')+'" data-act="decpick" data-id="'+o.k+'">'+o.t+'</button><div class="meta">'+o.d+'</div></div>').join('')+
     '<p class="note" style="margin:8px 0 0">Noch ca. '+left+' '+(left===1?'Monat':'Monate')+' Zeit. Ohne Antwort passiert: '+d.opts.find(o=>o.k===d.defk).t+'.</p></div></section>';
 }
+// Solange eine Leiste mit dem Finger verschoben wird oder noch ausrollt, wartet das automatische Neuzeichnen
+let barKey='',barTouch=false,barMoved=0;
+const barBusy=()=>barTouch||performance.now()-barMoved<350;
 function renderView(){
   if(!S||startOpen)return;
   const v=$('view');
   const map={plan:vPlan,hv:vHvPage,uebers:vOver,bank:vBank,wp:vWp,sach:vSach,re:vRe,biz:vBiz,job:vJob,life:vLife,genuss:vGenuss,erf:vAch,stat:vStat,fam:vFam,rente:vRente,up:vUp};
   buildTabs();if(tab==='plan'&&!fpOn())tab='uebers';
   let mb='';if(MORE.includes(tab)){S.ui.sub.mehr=tab;if(!narrow())mb='<div class="subtabs morebar" role="tablist">'+MORE.map(k=>'<button type="button" class="chip" data-act="gotab" data-id="'+k+'" aria-pressed="'+(k===tab)+'">'+TABS0.find(t=>t[0]===k)[1]+'</button>').join('')+'</div>';}
+  // Seitlich verschobene Leisten (Unterreiter) behalten ihre Stellung, solange Seite und Auswahl gleich bleiben.
+  // Sonst springt die Leiste bei jedem Neuzeichnen (im laufenden Spiel mehrmals pro Sekunde) an den Anfang zurück.
+  const bk=tab+'|'+(S.ui.sub[tab]||''),bl=barKey===bk?[...v.querySelectorAll('.subtabs')].map(b=>b.scrollLeft):null;
   v.innerHTML=mb+decCard()+(tab==='uebers'?fpMini():'')+map[tab]();
   enhance(v);
+  if(bl)v.querySelectorAll('.subtabs').forEach((b,i)=>{if(bl[i]!=null)b.scrollLeft=bl[i];});barKey=bk;
   if(tab==='rente')drawVor($('cvVor'));
   if(tab==='hv')drawHv();
   if(tab==='stat'){const ys=S.yrs.map(y=>y.nw);ys.push(netWorth(S));drawSeries($('cvYr'),ys.length>1?ys:[ys[0],ys[0]+1],x=>nf0.format(Math.round(x)));}
@@ -5517,7 +5524,7 @@ function loop(){
   if(S.fresh&&S.fresh.length){toast('Erfolg: '+S.fresh.join(', '));S.fresh=[];}
   if(S.lifePop){S.lifePop=false;dirty=true;openLifeDlg();return;}if(S.pop!==false){if(S.yrPop){S.yrPop=false;openYearDlg();return;}if(S.dec&&!S.dec.shown){S.dec.shown=true;openDecDlg();return;}const le=leaseDue(S).find(it=>!it.lease.shown);if(le){openLeaseEnd(le.uid);return;}const zd=zbDue(S).find(x=>!x.loan.shown);if(zd){openZb(zd.uid);return;}}else S.yrPop=false;
   if(steps){if(S.day%30<steps)dirty=true;updateHeader();needRender=true;}
-  if(needRender&&!pressing&&!(document.activeElement&&document.activeElement.tagName==='SELECT')){needRender=false;renderView();}
+  if(needRender&&!pressing&&!barBusy()&&!(document.activeElement&&document.activeElement.tagName==='SELECT')){needRender=false;renderView();}
 }
 let tabsKey='';
 function buildTabs(){moreSync();const tabs=$('tabs');const key=tabList().map(t=>t[0]).join();if(key===tabsKey)return;tabsKey=key;tabs.textContent='';
@@ -5530,6 +5537,10 @@ function start(data){
   $('view').addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b||b.disabled)return;act.x=e.clientX;act.y=e.clientY;act(b.dataset.act,b.dataset.id);});
   $('view').addEventListener('change',e=>{if(e.target.id==='selBrand'){sel.brand=e.target.value;renderView();}if(e.target.id==='selReg'){rsel.reg=e.target.value;renderView();}if(e.target.id==='selBS'){rsel.bsort=e.target.value;renderView();}if(e.target.id==='selType'){rsel.type=e.target.value;renderView();}if(e.target.id==='selSort'){rsel.sort=e.target.value;renderView();}});
   $('speed').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;speed=Number(b.dataset.s);$('speed').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b?'true':'false'));});
+  {const v=$('view'),inBar=e=>!!(e.target&&e.target.closest&&e.target.closest('.subtabs'));
+   v.addEventListener('scroll',e=>{if(e.target&&e.target.classList&&e.target.classList.contains('subtabs'))barMoved=performance.now();},true);
+   v.addEventListener('touchstart',e=>{if(inBar(e))barTouch=true;},{capture:true,passive:true});
+   const te=()=>{if(barTouch){barTouch=false;barMoved=performance.now();}};document.addEventListener('touchend',te,{capture:true,passive:true});document.addEventListener('touchcancel',te,{capture:true,passive:true});}
   document.addEventListener('pointerdown',()=>{pressing=true;},true);
   const rel=()=>{pressing=false;};document.addEventListener('pointerup',rel,true);document.addEventListener('pointercancel',rel,true);
   bindLv();tourInit();
