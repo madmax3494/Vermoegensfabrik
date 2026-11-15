@@ -309,7 +309,7 @@ button.chip:hover{background:var(--accent-soft);color:var(--accent)}
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f3f5f9" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0b1020" media="(prefers-color-scheme: dark)">
-<script>window.__web="110";</script>
+<script>window.__web="111";</script>
 </head>
 <body>
 <div class="wrap">
@@ -3692,7 +3692,7 @@ function pc(x,d){d=d==null?2:d;return x.toLocaleString('de-DE',{minimumFractionD
 
 const KEY='vermoegensfabrik-v2';
 // Versionsnummer, bei jeder Veröffentlichung hochzählen (bauen-web.sh liest sie hier)
-const VF_VERSION='110';
+const VF_VERSION='111';
 const $=id=>document.getElementById(id);
 const TAB_ICONS={
   uebers:'M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z',
@@ -5240,12 +5240,13 @@ function openMore(){
   const body='<div class="moregrid">'+MORE.map(k=>'<button type="button" data-more="'+k+'"'+(k===tab?' aria-current="page"':'')+'><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="'+(TAB_ICONS[k]||'')+'"/></svg><span>'+TABS0.find(t=>t[0]===k)[1]+'</span></button>').join('')+'</div>';
   dlg('Mehr',body,[{t:'Schließen'}],()=>{$('mb').querySelectorAll('[data-more]').forEach(b=>b.addEventListener('click',()=>{closeDlg();goTab(b.dataset.more);const v=$('view');v.classList.remove('enter');void v.offsetWidth;v.classList.add('enter');}));});
 }
-// Kopfbereich folgt dem Scrollen (schmale Fenster): --hH = Höhe der zweiten Kachelreihe samt Abstand, --hy = gescrollter Weg bis höchstens --hH,
+// Kopfbereich folgt dem Scrollen (schmale Fenster): --hH = Höhe der zweiten Kachelreihe samt Abstand (Unterkante Reihe 2 minus Unterkante Reihe 1;
+// nicht der Abstand der Oberkanten, denn die erste Reihe ist mit der Zusatzzeile unter „Verfügbar“ höher), --hy = gescrollter Weg bis höchstens --hH,
 // --ho = Deckkraft der zweiten Reihe. Kein Umbau des Layouts, deshalb ruckelt beim Scrollen nichts.
 function topMini(){const t=document.querySelector('.top');if(!t)return;const st=t.querySelectorAll('.stat');
   if(!narrow()||st.length<4||!st[0].offsetParent){t.style.removeProperty('--hH');t.style.removeProperty('--hy');t.style.removeProperty('--ho');return;}
   // T0 = Stelle, an der der Kopf den oberen Rand erreicht (darüber scrollt der Titel ganz normal weg)
-  const sy=window.scrollY||0,T0=Math.max(0,$('app').getBoundingClientRect().top+sy),H=Math.max(0,st[2].offsetTop-st[0].offsetTop),y=Math.max(0,Math.min(H,sy-T0));
+  const sy=window.scrollY||0,T0=Math.max(0,$('app').getBoundingClientRect().top+sy),H=Math.max(0,(st[2].offsetTop+st[2].offsetHeight)-(st[0].offsetTop+st[0].offsetHeight)),y=Math.max(0,Math.min(H,sy-T0));
   t.style.setProperty('--hH',H+'px');t.style.setProperty('--hy',y+'px');t.style.setProperty('--ho',H?String(Math.max(0,1-1.6*y/H)):'1');}
 // Einmalige Vorgabe: selten gebrauchte Abschnitte langer Seiten zugeklappt, bei mehr als drei Immobilien der Bestand in Kurzform. Danach gilt, was der Spieler auf- oder zuklappt.
 const CDEF=['uebers/Markt','uebers/Ruhestand','uebers/Status','hv/Vorgaben','hv/Entwicklung','rente/Zwischenbilanz','rente/Entwicklung deiner Vorsorge'];
