@@ -271,7 +271,7 @@ button.chip:hover{background:var(--accent-soft);color:var(--accent)}
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f3f5f9" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0b1020" media="(prefers-color-scheme: dark)">
-<script>window.__web="106";</script>
+<script>window.__web="107";</script>
 </head>
 <body>
 <div class="wrap">
@@ -991,7 +991,9 @@ function hvStats(S){
       if(m.k==='frei'&&leaseOk(x)){const I=mlInfo(S,x,u);if(I.ok&&I.max>m.r*1.01)canUp++;}}}
   return {n:L.length,units,vac,rent,mk,lastR:r12,lastC:c12,val,debt,pay,ks,canUp,over,gross:val>0?rent*12/val:0,net:val>0?(rent-c12)*12/val:0,cf:r12-c12-tl,tl};
 }
-function hvHistPush(S){if(!hvRented(S).length)return;const t=hvStats(S);S.hvH=S.hvH||[];S.hvH.push([S.day,Math.round(t.lastR),Math.round(t.lastC),t.vac,t.units,Math.round(t.cf)]);if(S.hvH.length>720)S.hvH.shift();}
+// Verlauf der Verwaltung: Einnahmen und Kosten mit Ferienunterkünften, Überschuss wie in der Kachel (hvCf, also mit Firmenkosten und Firmensteuer).
+// Läuft nach hkMonth, damit die Kontobewegungen des Monats schon feststehen.
+function hvHistPush(S){if(!hvAll(S).length)return;const t=hvStats(S),f=hvHolStats(S),c=hvCf(S);S.hvH=S.hvH||[];S.hvH.push([S.day,Math.round(t.lastR+f.lastR),Math.round(t.lastC+f.lastC),t.vac,t.units,Math.round(c.all)]);if(S.hvH.length>720)S.hvH.shift();}
 function hvRaiseAll(S,rnd){let n=0,sum=0,nl=0;for(const x of hvRented(S)){const us=x.units?x.units.map((u,i)=>[u,i]):[[null,undefined]];
   for(const [u,i] of us){const o=u||x;if(!o.ml||o.ml.k!=='frei'||!leaseOk(x))continue;const I=mlInfo(S,x,u);if(!I.ok||I.max<=o.ml.r*1.01)continue;const r0=o.ml.r;
     mlRaise(S,x.uid,Math.floor(I.max),rnd,i);if(o.ml&&o.ml.r>r0){n++;sum+=o.ml.r-r0;if(o.mlLeave)nl++;}}}return {n,sum,lv:nl};}
@@ -3489,7 +3491,6 @@ function monthly(S,rnd){
     else if(!x.own&&net<0&&L.tax>0)S.taxD+=-net;
     x.lm={r:rent,c:(x.exp||0)-exp0,p:x.loan?x.loan.pay-interest:0};
   }
-  hvHistPush(S);
   // Tagesgeld
   for(const b of BANKS){
     const bal=S.tg[b.id];if(bal<=0)continue;
@@ -3538,6 +3539,7 @@ function monthly(S,rnd){
   }
   // Genuss und Sparpläne
   hkMonth(S,money,mi);
+  hvHistPush(S);
   gMonth(S,rnd);
   tgDaRun(S);
   runPlans(S);
@@ -4186,7 +4188,7 @@ function vHvPage(){
    (t.canUp?'<div class="acts"><button class="btn pri" data-act="hvraise">Alle erlaubten Erhöhungen durchführen</button></div>':'')+'</div></section>';
   h+=hkSec();
   h+='<section><h2>Entwicklung</h2><div class="pad"><div class="seg" role="tablist">'+[['r','Mieten'],['c','Kosten'],['cf','Überschuss'],['v','Leerstand']].map(x=>'<button class="btn'+(hvSer===x[0]?' pri':'')+'" data-act="hvser" data-id="'+x[0]+'">'+x[1]+'</button>').join('')+'</div>'+
-   '<canvas id="cvHv" style="height:170px;margin-top:8px"></canvas><p class="note">'+(H.length<3?'Der Verlauf füllt sich jeden Monat.':'Monatswerte seit '+dateOf(H[0][0]).txt+'.')+'</p></div></section>';
+   '<canvas id="cvHv" style="height:170px;margin-top:8px"></canvas><p class="note">'+(H.length<3?'Der Verlauf füllt sich jeden Monat.':'Monatswerte seit '+dateOf(H[0][0]).txt+'.')+(hvSer==='cf'?' Der Überschuss wird wie in der Kachel oben gerechnet, also nach Tilgung, Firmenkosten und Firmensteuer.':'')+'</p></div></section>';
   const hv=S.hv;
   h+='<section><h2>Vorgaben</h2><div class="pad"><div class="kv"><span>Vertrag für neue Mieter</span><span>'+MLK[hv.k]+(hv.k==='staffel'?' (+'+hv.st+' %)':'')+'</span><span>Miete bei Neuvermietung</span><span>'+HVO.neu[hv.neu]+'</span><span>Erhöhungen</span><span>'+HVO.up[hv.up]+'</span><span>Mieterauswahl</span><span>'+HVO.sel[hv.sel]+'</span><span>Renovieren bei Wechsel</span><span>'+(hv.ren?'ja':'nein')+'</span></div><div class="acts"><button class="btn" data-act="hvopen">Vorgaben ändern</button></div></div></section>';
   h+='<section><h2>Objekte</h2>';
@@ -5163,6 +5165,28 @@ function openZb(uid){
 function loadLocal(){try{const r=localStorage.getItem(KEY);return r?JSON.parse(r):null;}catch(e){return null;}}
 function saveLocal(){if(!S)return;S.savedAt=Date.now();try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
 function exportText(){try{return btoa(unescape(encodeURIComponent(JSON.stringify(S))));}catch(e){return '';}}
+/* ---------- App-Fassung (GitHub Pages, window.__web): Start ohne Netz, Hinweis auf neue Version, Erinnerung an die Sicherung ---------- */
+const BAK_KEY='vf_bak',BAK_DAYS=14,BAK_SNOOZE=7,DAYMS=864e5;
+function bakGet(){try{const o=JSON.parse(localStorage.getItem(BAK_KEY)||'{}');return o&&typeof o==='object'?o:{};}catch(e){return {};}}
+function bakSet(o){try{localStorage.setItem(BAK_KEY,JSON.stringify(Object.assign(bakGet(),o)));}catch(e){}}
+function bakDone(){bakSet({at:Date.now(),later:0});}
+// Fällig, wenn es ein Spiel gibt, das älter als zwei Wochen ist, und die letzte Sicherung (oder der Spielbeginn) so lange her ist
+function bakDue(now){if(!window.__web||!S)return 0;const b=bakGet(),ref=Math.max(b.at||0,S.started||now);if(now-ref<BAK_DAYS*DAYMS)return 0;if(b.later&&now-b.later<BAK_SNOOZE*DAYMS)return 0;return Math.floor((now-ref)/DAYMS);}
+function bakAsk(){const d=bakDue(Date.now());if(!d||dlgOpen||startOpen)return;const nie=!bakGet().at;
+  dlg('Spielstand sichern?','<p class="dn">'+(nie?'Du hast diesen Spielstand noch nie als Datei gesichert.':'Deine letzte Sicherung ist '+d+' Tage her.')+' In der App liegt er nur auf diesem Gerät. Löschst du das Symbol vom Home-Bildschirm oder die Website-Daten, ist er weg.</p>',
+   [{t:'Später',f:()=>{bakSet({later:Date.now()});}},{t:'Jetzt sichern',pri:true,f:()=>{$('savefile').click();}}]);}
+function updBar(){if($('updbar'))return;const d=document.createElement('div');d.id='updbar';
+  d.style.cssText='position:fixed;left:12px;right:12px;top:max(env(safe-area-inset-top,0px),10px);z-index:9999;display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:14px;background:var(--panel);color:var(--ink);border:1px solid var(--line);box-shadow:var(--shadow);font:500 14px var(--body)';
+  d.innerHTML='<span>Neue Version ist da.</span><span style="display:flex;gap:8px;flex:none"><button class="btn" type="button" id="updno">Später</button><button class="btn pri" type="button" id="updgo">Jetzt laden</button></span>';
+  document.body.appendChild(d);$('updno').addEventListener('click',()=>d.remove());$('updgo').addEventListener('click',()=>{saveLocal();location.reload();});}
+function webInit(){
+  if(!window.__web)return;
+  setTimeout(bakAsk,1500);
+  if(!('serviceWorker' in navigator)||location.protocol==='file:')return;
+  let had=!!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(had)updBar();had=true;});
+  navigator.serviceWorker.register('sw.js').then(r=>{document.addEventListener('visibilitychange',()=>{if(!document.hidden)r.update().catch(()=>{});});}).catch(e=>{console.warn('Start ohne Netz nicht möglich:',e);});
+}
 function importText(t){
   try{const o=JSON.parse(decodeURIComponent(escape(atob(t.trim()))));if(o.v!==2)throw new Error('v');S=normalize(o);saveLocal();dirty=true;showApp();toast('Spielstand geladen.');}
   catch(e){toast('Der Text ist kein gültiger Spielstand.');}
@@ -5435,8 +5459,8 @@ function start(data){
         if(!window.__web){fb();return;}
         try{
           const file=new File([txt],name,{type:'text/plain'});
-          if(navigator.canShare&&navigator.canShare({files:[file]}))return navigator.share({files:[file]}).then(()=>toast('Spielstand gesichert: '+name),e=>{if(e&&e.name==='AbortError')toast('Abgebrochen.');else fb();});
-          const u=URL.createObjectURL(file),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000);toast('Spielstand gesichert: '+name);
+          if(navigator.canShare&&navigator.canShare({files:[file]}))return navigator.share({files:[file]}).then(()=>{bakDone();toast('Spielstand gesichert: '+name);},e=>{if(e&&e.name==='AbortError')toast('Abgebrochen.');else fb();});
+          const u=URL.createObjectURL(file),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000);bakDone();toast('Spielstand gesichert: '+name);
         }catch(e){fb();}
         return;
       }
@@ -5461,6 +5485,7 @@ function start(data){
   $('reset').addEventListener('click',()=>dlg('Alles löschen?','<p class="dn">Spielstand und Ruhestandspunkte werden gelöscht.</p>',[{t:'Abbrechen'},{t:'Löschen',pri:true,f:()=>{S=null;try{localStorage.removeItem(KEY);}catch(e){}showStart();}}]));
   $('syncnote').textContent=window.__web?'App-Fassung, Version '+window.__web+'. Dein Fortschritt liegt nur auf diesem Gerät. Sichere ihn ab und zu als Datei, vor allem bevor du die App vom Home-Bildschirm löschst.':'Dein Fortschritt wird auf diesem Gerät gespeichert und, wenn möglich, mit deinem Claude-Konto abgeglichen.';
   if(window.claude&&window.claude.hot&&window.claude.hot.snapshot)window.claude.hot.snapshot(()=>S?JSON.parse(JSON.stringify(S)):{});
+  webInit();
   const sv=(data&&data.v===2)?data:loadLocal();
   if(sv&&sv.v===2){S=normalize(sv);showApp();}else{showStart();}
   setSync('Speicher: lokal');
@@ -5475,10 +5500,6 @@ function start(data){
   if(window.claude&&window.claude.hot&&window.claude.hot.ready)window.claude.hot.ready(boot);
   else boot((window.claude&&window.claude.hot&&window.claude.hot.data)||{});
 })();
-</script>
-<script>
-// App-Fassung: Spiel einmal auf dem Gerät ablegen, damit es ohne Netz startet.
-if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(function (e) { console.warn('Start ohne Netz nicht möglich:', e); });
 </script>
 </body>
 </html>
