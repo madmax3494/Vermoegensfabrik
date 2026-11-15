@@ -309,7 +309,7 @@ button.chip:hover{background:var(--accent-soft);color:var(--accent)}
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f3f5f9" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0b1020" media="(prefers-color-scheme: dark)">
-<script>window.__web="111";</script>
+<script>window.__web="112";</script>
 </head>
 <body>
 <div class="wrap">
@@ -348,6 +348,7 @@ button.chip:hover{background:var(--accent-soft);color:var(--accent)}
       <p class="note" id="syncnote"></p>
       <div class="tools">
         <button type="button" id="fptog">Reiter Fahrplan: an</button>
+        <button type="button" id="tabset">Leiste anpassen</button>
         <button type="button" id="tourbtn">Einführung zeigen</button>
         <button type="button" id="poptog">Pop-ups bei Entscheidung und Jahresende: an</button>
         <button type="button" id="savefile">Spielstand als Datei sichern</button>
@@ -2421,7 +2422,7 @@ function normalize(o){
   S.fp={};if(o.fp&&typeof o.fp==='object')for(const k in o.fp)if(o.fp[k]>0)S.fp[k]=o.fp[k];
   {const v=o.vbl&&typeof o.vbl==='object'?o.vbl:{},f=x=>isFinite(x)&&x>0?x:0;S.vbl={pts:f(v.pts),an:f(v.an),ag:f(v.ag)};}
   {const t=o.tgDa&&typeof o.tgDa==='object'?o.tgDa:{};S.tgDa={};for(const k in t)if(BANKS.some(b=>b.id===k)&&t[k]>=1&&t[k]<=20000)S.tgDa[k]=Math.round(t[k]);}
-  {const u=o.ui&&typeof o.ui==='object'?o.ui:{},ob=x=>{const r={};if(x&&typeof x==='object')for(const k in x)if(typeof x[k]==='string'||x[k]===true||x[k]===1)r[k]=x[k];return r;};S.ui={c:ob(u.c),o:ob(u.o),sub:ob(u.sub),fp:u.fp!==false,tour:u.tour===0?0:1,cdef:u.cdef?1:0};}
+  {const u=o.ui&&typeof o.ui==='object'?o.ui:{},ob=x=>{const r={};if(x&&typeof x==='object')for(const k in x)if(typeof x[k]==='string'||x[k]===true||x[k]===1)r[k]=x[k];return r;};S.ui={c:ob(u.c),o:ob(u.o),sub:ob(u.sub),fp:u.fp!==false,tour:u.tour===0?0:1,cdef:u.cdef?1:0,prim:Array.isArray(u.prim)?u.prim.filter(x=>typeof x==='string').slice(0,5):null};}
   S.pfold={};if(o.pfold&&typeof o.pfold==='object')for(const k in o.pfold)if(o.pfold[k])S.pfold[k]=1;S.joy=isFinite(o.joy)?Math.max(0,Math.min(100,o.joy)):50;S.mem=o.mem>0?o.mem:0;S.gk=o.gk>0?o.gk:0;S.gkPlan=o.gkPlan>0?Math.min(5000,Math.round(o.gkPlan)):0;
   S.hob={};if(o.hob&&typeof o.hob==='object'){for(const k in o.hob)if(HOBY[k]&&Object.keys(S.hob).length<HOB_MAX)S.hob[k]=o.hob[k];}
   S.gExp={};if(o.gExp&&typeof o.gExp==='object'){for(const k in o.gExp)if(GBY[k]&&o.gExp[k]>0)S.gExp[k]=o.gExp[k]|0;}
@@ -3692,7 +3693,7 @@ function pc(x,d){d=d==null?2:d;return x.toLocaleString('de-DE',{minimumFractionD
 
 const KEY='vermoegensfabrik-v2';
 // Versionsnummer, bei jeder Veröffentlichung hochzählen (bauen-web.sh liest sie hier)
-const VF_VERSION='111';
+const VF_VERSION='112';
 const $=id=>document.getElementById(id);
 const TAB_ICONS={
   uebers:'M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z',
@@ -3717,7 +3718,9 @@ const fpOn=()=>!S||!S.ui||S.ui.fp!==false;
 // Schmale Fenster (iPhone): fünf feste Reiter in der Leiste, alles andere unter „Mehr“ (Auswahlfenster). Breite Fenster: wie bisher.
 const PRIM=['uebers','bank','wp','re','job'],MORE0=['fam','rente','stat','erf','up'],MORE=MORE0.slice();
 const narrow=()=>typeof matchMedia==='function'&&matchMedia('(max-width:700px)').matches;
-function moreSync(){const l=narrow()?TABS0.map(t=>t[0]).filter(k=>!PRIM.includes(k)&&(k!=='plan'||fpOn())):MORE0;MORE.length=0;MORE.push(...l);}
+// Die fünf festen Reiter: eigene Wahl (S.ui.prim), sonst die Vorgabe PRIM
+function prim(){const p=S&&S.ui&&S.ui.prim,ok=Array.isArray(p)&&p.length===5&&new Set(p).size===5&&p.every(k=>TABS0.some(t=>t[0]===k)&&(k!=='plan'||fpOn()));return ok?p:PRIM;}
+function moreSync(){const P=prim(),l=narrow()?TABS0.map(t=>t[0]).filter(k=>!P.includes(k)&&(k!=='plan'||fpOn())):MORE0;MORE.length=0;MORE.push(...l);}
 const tabOf=t=>t==='hv'?'re':MORE.includes(t)?'mehr':t;
 const tabList=()=>TABS0.filter(t=>(t[0]!=='plan'||fpOn())&&!MORE.includes(t[0])).concat([['mehr','Mehr']]);
 const TABS=TABS0.slice(1);
@@ -3861,7 +3864,7 @@ function vOver(){
   const tot=segs.reduce((s,x)=>s+x[1],0)||1;
   h+='<section><h2>Vermögen</h2><div class="bar">'+segs.map(x=>'<div style="width:'+(x[1]/tot*100)+'%;background:var('+x[2]+')"></div>').join('')+'</div><div class="leg">'+
    segs.map(x=>'<span><i style="background:var('+x[2]+')"></i>'+x[0]+'</span><span>'+eur(x[1])+'</span>').join('')+
-   '<span>Notgroschen</span><span class="'+(reserveMonths(S)<3?'neg':'')+'">'+reserveMonths(S).toFixed(1).replace('.',',')+' Monate</span><span>Schulden</span><span class="'+(P.debt>0.5?'neg':'')+'">'+(P.debt>0.5?eur(-P.debt):eur(0))+'</span><span><b>Gesamtvermögen</b></span><span><b>'+eur(P.nw)+'</b></span></div></section>';
+   '<span>Notgroschen</span><span class="'+(reserveMonths(S)<3?'neg':'')+'">'+monTxt(reserveMonths(S))+'</span><span>Schulden</span><span class="'+(P.debt>0.5?'neg':'')+'">'+(P.debt>0.5?eur(-P.debt):eur(0))+'</span><span><b>Gesamtvermögen</b></span><span><b>'+eur(P.nw)+'</b></span></div></section>';
   const st=statusOf(S),rk=rankOf(S),nx=RANKS[rk+1];
   h+='<section><h2>Status</h2><div class="pad"><p class="note" style="margin-top:0"><b>'+RANKS[rk][1]+'</b> · '+st+' Punkte'+(nx?' · nächster Rang <b>'+nx[1]+'</b> ab '+nx[0]:' · höchster Rang')+'</p>'+
    '<div class="kv"><span>Gehalt (Kontakte)</span><span class="pos">+'+rk*2+' %</span><span>Betriebsgewinne</span><span class="pos">+'+rk*3+' %</span><span>Kreditzins</span><span class="pos">−'+(rk*0.1).toFixed(1).replace('.',',')+' Punkte</span></div>'+
@@ -3924,13 +3927,16 @@ function vBank(){
   }
   h+='</section>';
   h+='<section><h2>Ratenkredit</h2>';
-  KBANKS.forEach(k=>{
+  // Kurzform: die drei günstigsten Banken, alle auf Wunsch (S.ui.o.kb)
+  const kAll=!!S.ui.o.kb||KBANKS.length<=4,kShow=kAll?KBANKS:KBANKS.slice().sort((a,b)=>kRate(S,a,48)-kRate(S,b,48)).slice(0,3);
+  kShow.forEach(k=>{
     const r=kRate(S,k,48),open=kOutstanding(S,k.bank);
     h+='<div class="row"><div><span class="name">'+k.bank+'</span></div><div class="val">'+pc(r)+'</div>'+
      '<div class="meta">ab '+pc(kRate(S,k,12))+' eff. Jahreszins · '+eur(k.min)+' bis '+eur(k.max)+' · '+k.terms[0]+' bis '+k.terms[k.terms.length-1]+' Monate'+(k.fee?' · '+pc(k.fee,0)+' Bearbeitungsgebühr':'')+'<br>'+k.note+(open?' · bei dieser Bank offen: '+eur(open):'')+'</div>'+
      '<div class="acts"><button class="btn pri" data-act="kask" data-id="'+k.id+'">Kredit anfragen</button></div></div>';
   });
-  h+='<p class="note pad">Der angezeigte Zins gilt für 48 Monate. Er hängt vom Leitzins, der Laufzeit und deinem Rang ab. Die Bank prüft, ob die Rate zu deinem Einkommen passt. Vorzeitig tilgen ist möglich'+(kRepayFee(S)?' (Gebühr '+pc(kRepayFee(S)*100,1)+' des getilgten Betrags)':' ohne Gebühr')+'.</p></section>';
+  if(KBANKS.length>4)h+='<div class="acts pad"><button class="btn" data-act="fold" data-id="cat:kb">'+(kAll?'Nur die drei günstigsten zeigen':'Alle '+KBANKS.length+' Banken zeigen')+'</button></div>';
+  h+='<p class="note pad">'+(kAll?'':'Zu sehen sind die drei günstigsten Banken. ')+'Der angezeigte Zins gilt für 48 Monate. Er hängt vom Leitzins, der Laufzeit und deinem Rang ab. Die Bank prüft, ob die Rate zu deinem Einkommen passt. Vorzeitig tilgen ist möglich'+(kRepayFee(S)?' (Gebühr '+pc(kRepayFee(S)*100,1)+' des getilgten Betrags)':' ohne Gebühr')+'.</p></section>';
   if(S.loans.length){
     h+='<section><h2>Meine Kredite</h2>';
     S.loans.forEach(l=>{
@@ -4140,6 +4146,8 @@ function openHv(){
    ()=>{const sw=()=>{$('hstw').style.display=$('hk').value==='staffel'?'':'none';};$('hk').addEventListener('change',sw);sw();});
 }
 let hvSer='r';
+// Dauer lesbar: bis zwei Jahre in Monaten, darüber in ganzen Jahren
+function monTxt(m){if(!isFinite(m))return 'über 99 Jahre';if(m<24)return m.toFixed(1).replace('.',',')+' Monate';const y=Math.floor(m/12);return y>99?'über 99 Jahre':y+' Jahre';}
 function goTab(t){tab=t;document.querySelectorAll('#tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===tabOf(t)?'true':'false'));renderView();window.scrollTo(0,0);tabsShow();}
 // Untere Leiste: gewählten Reiter in die Mitte holen und an den Rändern anzeigen, ob es seitlich weitergeht
 function tabsEdge(){const t=$('tabs');if(!t)return;const more=t.scrollWidth-t.clientWidth>4;t.dataset.ml=more&&t.scrollLeft>4?'1':'0';t.dataset.mr=more&&t.scrollLeft+t.clientWidth<t.scrollWidth-4?'1':'0';}
@@ -4486,7 +4494,12 @@ function monthReport(led,has){
   let h='<section><h2>'+(has?'Letzter Monat':'Laufender Monat')+'</h2>';
   if(!ks.length)return h+'<p class="note pad" style="margin-top:0">Noch keine Buchungen.</p></section>';
   h+='<div class="mstats"><div><span>Einnahmen</span><b class="pos">'+sgn(si)+'</b></div><div><span>Ausgaben</span><b class="neg">'+sgn(so)+'</b></div><div><span>Saldo</span><b class="'+cls(net)+'">'+sgn(net)+'</b></div></div>';
-  h+='<div class="mrep">'+(inc.length?'<div class="mh">Einnahmen</div>'+inc.map(row).join(''):'')+(out.length?'<div class="mh">Ausgaben</div>'+out.map(row).join(''):'')+'</div>';
+  // Einzelposten nur auf Wunsch (S.ui.o.lm), sonst genügen die drei Summen und die größten Posten
+  const auf=!!S.ui.o.lm,top=a=>a.slice().sort((x,y)=>Math.abs(led[y])-Math.abs(led[x])).slice(0,2);
+  if(auf)h+='<div class="mrep">'+(inc.length?'<div class="mh">Einnahmen</div>'+inc.map(row).join(''):'')+(out.length?'<div class="mh">Ausgaben</div>'+out.map(row).join(''):'')+'</div>';
+  else if(ks.length>4)h+='<div class="mrep"><div class="mh">Größte Posten</div>'+top(inc).concat(top(out)).map(row).join('')+'</div>';
+  else h+='<div class="mrep">'+inc.concat(out).map(row).join('')+'</div>';
+  if(ks.length>4)h+='<div class="acts pad"><button class="btn" data-act="fold" data-id="cat:lm">'+(auf?'Nur die größten Posten zeigen':'Alle '+ks.length+' Posten zeigen')+'</button></div>';
   return h+'<p class="hint">Saldo = Veränderung des verfügbaren Geldes.</p></section>';
 }
 function vGenuss(){
@@ -5235,6 +5248,13 @@ function updBar(){if($('updbar'))return;const d=document.createElement('div');d.
   d.style.cssText='position:fixed;left:12px;right:12px;top:max(env(safe-area-inset-top,0px),10px);z-index:9999;display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:14px;background:var(--panel);color:var(--ink);border:1px solid var(--line);box-shadow:var(--shadow);font:500 14px var(--body)';
   d.innerHTML='<span>Neue Version ist da.</span><span style="display:flex;gap:8px;flex:none"><button class="btn" type="button" id="updno">Später</button><button class="btn pri" type="button" id="updgo">Jetzt laden</button></span>';
   document.body.appendChild(d);$('updno').addEventListener('click',()=>d.remove());$('updgo').addEventListener('click',()=>{saveLocal();location.reload();});}
+// Einstellung: welche fünf Bereiche fest in der unteren Leiste liegen (wirkt in schmalen Fenstern)
+function openTabSet(){
+  if(!S)return;const cur=prim(),all=TABS0.filter(t=>t[0]!=='plan'||fpOn());
+  const body='<p class="dn">Wähle genau fünf Bereiche für die untere Leiste am iPhone. Alle anderen findest du unter „Mehr“. Auf iPad und Mac zeigt die Leiste ohnehin mehr.</p><div class="moregrid" id="tsg">'+all.map(t=>'<label class="chk" style="padding:6px 4px"><input type="checkbox" value="'+t[0]+'"'+(cur.includes(t[0])?' checked':'')+'> <span>'+t[1]+'</span></label>').join('')+'</div><p class="note" id="tsn"></p><p class="derr" id="derr"></p>';
+  const sel=()=>[...$('tsg').querySelectorAll('input:checked')].map(i=>i.value),upd=()=>{const n=sel().length;$('tsn').textContent=n+' von 5 gewählt'+(n===5?'':'. '+(n<5?'Wähle noch '+(5-n)+'.':'Nimm '+(n-5)+' wieder heraus.'));};
+  dlg('Leiste anpassen',body,[{t:'Abbrechen'},{t:'Vorgabe',f:()=>{S.ui.prim=null;tabsKey='';dirty=true;saveLocal();toast('Die Leiste zeigt wieder die Vorgabe.');}},{t:'Speichern',pri:true,f:()=>{const s=sel();if(s.length!==5){derr('Bitte genau fünf Bereiche wählen.');return false;}S.ui.prim=s;tabsKey='';if(tab==='mehr')tab='uebers';dirty=true;saveLocal();toast('Leiste gespeichert.');}}],()=>{$('tsg').addEventListener('change',upd);upd();});
+}
 // Auswahlfenster hinter „Mehr“ (schmale Fenster)
 function openMore(){
   const body='<div class="moregrid">'+MORE.map(k=>'<button type="button" data-more="'+k+'"'+(k===tab?' aria-current="page"':'')+'><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="'+(TAB_ICONS[k]||'')+'"/></svg><span>'+TABS0.find(t=>t[0]===k)[1]+'</span></button>').join('')+'</div>';
@@ -5541,6 +5561,7 @@ function start(data){
       return d.save({filename:name,data:txt}).then(()=>toast('Spielstand gesichert: '+name),e=>{if(e&&e.code==='declined')toast('Abgebrochen.');else fb();});
     }).catch(fb);
   });
+  $('tabset').addEventListener('click',openTabSet);
   $('loadfile').addEventListener('click',()=>$('filein').click());
   $('filein').addEventListener('change',e=>{const f=e.target.files&&e.target.files[0];e.target.value='';if(!f)return;
     if(f.size>5e6){toast('Die Datei ist zu groß.');return;}
