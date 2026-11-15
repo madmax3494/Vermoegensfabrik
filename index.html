@@ -293,13 +293,11 @@ button.chip:hover{background:var(--accent-soft);color:var(--accent)}
   .tabs{padding-left:max(4px,env(safe-area-inset-left));padding-right:max(4px,env(safe-area-inset-right))}
   .tabs button{flex:1 1 0;min-width:0;padding:4px 0;font-size:10px;letter-spacing:-.01em}
   .tabs button span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .top.mini{padding-bottom:6px}
-  .top.mini .stats{gap:6px;grid-template-columns:minmax(0,auto) minmax(0,1fr)}
-  .top.mini .stat:nth-child(n+3),.top.mini .statsub{display:none}
-  .top.mini .stat{padding:5px 10px;display:flex;align-items:baseline;justify-content:space-between;gap:8px}
-  .top.mini .stat span{font-size:10.5px;white-space:nowrap}
-  .top.mini .stat b{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-  .top.mini .timebar{margin-top:6px}
+  /* Kopf folgt dem Scrollen (V110): Der Kopf rutscht um die Höhe der zweiten Kachelreihe (--hH) nach oben weg und bleibt dann stehen.
+     Die erste Reihe wird um den gescrollten Weg (--hy) zurückgeschoben und bleibt so an ihrem Platz, die zweite blendet aus (--ho). */
+  .top{top:calc(-1 * var(--hH,0px))}
+  .top .stat:nth-child(-n+2){position:relative;z-index:1;transform:translateY(var(--hy,0px));transition:none}
+  .top .stat:nth-child(n+3){opacity:var(--ho,1);transition:none}
 }
 </style>
 <link rel="manifest" href="manifest.webmanifest">
@@ -311,7 +309,7 @@ button.chip:hover{background:var(--accent-soft);color:var(--accent)}
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f3f5f9" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0b1020" media="(prefers-color-scheme: dark)">
-<script>window.__web="109";</script>
+<script>window.__web="110";</script>
 </head>
 <body>
 <div class="wrap">
@@ -3694,7 +3692,7 @@ function pc(x,d){d=d==null?2:d;return x.toLocaleString('de-DE',{minimumFractionD
 
 const KEY='vermoegensfabrik-v2';
 // Versionsnummer, bei jeder Veröffentlichung hochzählen (bauen-web.sh liest sie hier)
-const VF_VERSION='109';
+const VF_VERSION='110';
 const $=id=>document.getElementById(id);
 const TAB_ICONS={
   uebers:'M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z',
@@ -5242,14 +5240,19 @@ function openMore(){
   const body='<div class="moregrid">'+MORE.map(k=>'<button type="button" data-more="'+k+'"'+(k===tab?' aria-current="page"':'')+'><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="'+(TAB_ICONS[k]||'')+'"/></svg><span>'+TABS0.find(t=>t[0]===k)[1]+'</span></button>').join('')+'</div>';
   dlg('Mehr',body,[{t:'Schließen'}],()=>{$('mb').querySelectorAll('[data-more]').forEach(b=>b.addEventListener('click',()=>{closeDlg();goTab(b.dataset.more);const v=$('view');v.classList.remove('enter');void v.offsetWidth;v.classList.add('enter');}));});
 }
-// Kopfbereich: beim Herunterscrollen auf eine Zeile verkleinern (nur schmale Fenster, per CSS). Zwei Schwellen, damit nichts flackert.
-function topMini(){const t=document.querySelector('.top');if(!t)return;const y=window.scrollY||0,m=t.classList.contains('mini');if(!m&&y>150)t.classList.add('mini');else if(m&&y<50)t.classList.remove('mini');}
+// Kopfbereich folgt dem Scrollen (schmale Fenster): --hH = Höhe der zweiten Kachelreihe samt Abstand, --hy = gescrollter Weg bis höchstens --hH,
+// --ho = Deckkraft der zweiten Reihe. Kein Umbau des Layouts, deshalb ruckelt beim Scrollen nichts.
+function topMini(){const t=document.querySelector('.top');if(!t)return;const st=t.querySelectorAll('.stat');
+  if(!narrow()||st.length<4||!st[0].offsetParent){t.style.removeProperty('--hH');t.style.removeProperty('--hy');t.style.removeProperty('--ho');return;}
+  // T0 = Stelle, an der der Kopf den oberen Rand erreicht (darüber scrollt der Titel ganz normal weg)
+  const sy=window.scrollY||0,T0=Math.max(0,$('app').getBoundingClientRect().top+sy),H=Math.max(0,st[2].offsetTop-st[0].offsetTop),y=Math.max(0,Math.min(H,sy-T0));
+  t.style.setProperty('--hH',H+'px');t.style.setProperty('--hy',y+'px');t.style.setProperty('--ho',H?String(Math.max(0,1-1.6*y/H)):'1');}
 // Einmalige Vorgabe: selten gebrauchte Abschnitte langer Seiten zugeklappt, bei mehr als drei Immobilien der Bestand in Kurzform. Danach gilt, was der Spieler auf- oder zuklappt.
 const CDEF=['uebers/Markt','uebers/Ruhestand','uebers/Status','hv/Vorgaben','hv/Entwicklung','rente/Zwischenbilanz','rente/Entwicklung deiner Vorsorge'];
 function uiDefaults(){if(!S||!S.ui||S.ui.cdef)return;S.ui.cdef=1;CDEF.forEach(k=>{S.ui.c[k]=1;});if(S.props.length>3)S.props.forEach(x=>{S.pfold[x.uid]=1;});dirty=true;}
 function webInit(){
   {const t=$('tabs');if(t){t.addEventListener('scroll',tabsEdge,{passive:true});addEventListener('resize',()=>{const k=tabsKey;buildTabs();if(k!==tabsKey&&S){if(tab==='mehr')tab='uebers';renderView();}tabsEdge();});setTimeout(tabsShow,300);}}
-  addEventListener('scroll',topMini,{passive:true});
+  addEventListener('scroll',topMini,{passive:true});addEventListener('resize',topMini);setTimeout(topMini,200);
   if(!window.__web)return;
   setTimeout(bakAsk,1500);
   if(!('serviceWorker' in navigator)||location.protocol==='file:')return;
@@ -5477,7 +5480,7 @@ function tourInit(){
   addEventListener('keydown',e=>{if(tourI>=0&&e.key==='Escape')tourEnd();});
   $('tourbtn').addEventListener('click',()=>{if(!S)return;const d=$('tourbtn').closest('details');if(d)d.open=false;tourGo(0);});
 }
-function showApp(){uiDefaults();startOpen=false;$('start').style.display='none';$('app').style.display='block';updateHeader();renderView();if(S&&S.ui.tour===0&&tourI<0)tourGo(0);}
+function showApp(){uiDefaults();startOpen=false;$('start').style.display='none';$('app').style.display='block';updateHeader();renderView();topMini();if(S&&S.ui.tour===0&&tourI<0)tourGo(0);}
 function showStart(){
   {const bx=$('start').querySelector('.in');if(startHTML===null)startHTML=bx.innerHTML;else{bx.innerHTML=startHTML;bindLv();}}
   startOpen=true;$('app').style.display='none';$('start').style.display='block';
