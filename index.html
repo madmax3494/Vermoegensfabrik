@@ -271,7 +271,7 @@ button.chip:hover{background:var(--accent-soft);color:var(--accent)}
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f3f5f9" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0b1020" media="(prefers-color-scheme: dark)">
-<script>window.__web="105";</script>
+<script>window.__web="106";</script>
 </head>
 <body>
 <div class="wrap">
@@ -799,10 +799,10 @@ function hkSplit(S){const H=hkOf(S),lm=H.lm||{},o={firm:[],priv:[],inv:[],sf:0,s
   for(const k in lm){const v=lm[k];if(!isFinite(v))continue;const g=HK_INV[k]?'inv':(k==='Mietanteil privat'||k.startsWith('Privat: ')||!H.co.on)?'priv':'firm';o[g==='inv'?'si':g==='priv'?'sp':'sf']+=v;if(Math.abs(v)>=0.5)o[g].push([k,v]);}
   ['firm','priv','inv'].forEach(g=>o[g].sort((a,b)=>b[1]-a[1]));return o;}
 // Überschuss der Verwaltung, passend zum Konto: private Objekte (Miete minus Kosten und Tilgung) plus Firma laufend (nach Firmensteuer und Firmenkosten)
-function hvCf(S){let p=0;for(const x of hvRented(S)){if(x.iv)continue;const lm=x.lm||{r:0,c:0,p:0};p+=lm.r-lm.c-(lm.p||0);}const f=ivOn(S)?hkSplit(S).sf:0;return {priv:p,firm:f,all:p+f};}
+function hvCf(S){let p=0;for(const x of hvAll(S)){if(x.iv)continue;const lm=x.lm||{r:0,c:0,p:0};p+=lm.r-lm.c-(lm.p||0);}const f=ivOn(S)?hkSplit(S).sf:0;return {priv:p,firm:f,all:p+f};}
 const IV_COVER=0.75;
 const IV_FOUND=2500,IV_CAP=25000,IV_FEE=2400,IV_KST=0.158,IV_MINEK=0.2,IV_ZINS=0.2;
-function ivAutoNew(){return {on:false,minY:4.5,maxP:400000,ek:30,res:10000,home:true};}
+function ivAutoNew(){return {on:false,minY:4.5,maxP:400000,ek:30,res:10000,home:true,hol:false};}
 function ivCoNew(){return {on:false,since:0,basis:0,loss:0,tax:0,fee:0,saved:0,out:0,otax:0,n:0,auto:ivAutoNew()};}
 function hkNew(){return {on:false,rates:true,bal:0,pct:20,since:0,tin:0,tout:0,m:{},lm:{},rep:[],co:ivCoNew()};}
 function hkOf(S){
@@ -811,7 +811,7 @@ function hkOf(S){
   H.rates=H.rates!==false;['daIn','daOut'].forEach(k=>{if(!(H[k]>=1&&H[k]<=50000))H[k]=0;else H[k]=Math.round(H[k]);});if(!H.m||typeof H.m!=='object')H.m={};if(!H.lm||typeof H.lm!=='object')H.lm={};if(!Array.isArray(H.rep))H.rep=[];
   if(!H.co||typeof H.co!=='object')H.co=ivCoNew();const C=H.co;C.on=!!C.on&&H.on;
   ['since','basis','loss','tax','fee','saved','out','otax','n'].forEach(k=>{if(!isFinite(C[k]))C[k]=0;});
-  const A=Object.assign(ivAutoNew(),C.auto&&typeof C.auto==='object'?C.auto:{});A.on=!!A.on;A.home=!!A.home;
+  const A=Object.assign(ivAutoNew(),C.auto&&typeof C.auto==='object'?C.auto:{});A.on=!!A.on;A.home=!!A.home;A.hol=!!A.hol;
   if(!(A.minY>=0&&A.minY<=20))A.minY=4.5;if(!(A.maxP>=10000))A.maxP=400000;if(!(A.ek>=20&&A.ek<=100))A.ek=30;if(!(A.res>=0))A.res=10000;C.auto=A;
   return H;
 }
@@ -825,7 +825,7 @@ function hkRep(S,t){const H=hkOf(S);H.rep.unshift(dateOf(S.day).txt+': '+t);H.re
 // Empfehlung für den Mietanteil: erwartete Kosten (Instandhaltung, Reparaturen, Rücklage für Sanierung) im Verhältnis zur Miete
 function hkSuggest(S){
   let rent=0,cost=0,rates=0,tax=0;const L=lv(S);
-  for(const x of hvRented(S)){if(x.iv||x.bau)continue;const v=propValue(x,S),r=rentNow(x,S)*12,m=maintYear(S,x);rent+=r;cost+=m+(L.repair?v*0.004*12*0.055:0)+(PT[x.type].fix?0:v*0.09/20);
+  for(const x of hvAll(S)){if(x.iv||x.bau)continue;const v=propValue(x,S),r=rentNow(x,S)*12,m=maintYear(S,x);rent+=r;cost+=m+(L.repair?v*0.004*12*0.055:0)+(PT[x.type].fix?0:v*0.09/20);
     let pay=x.loan?x.loan.pay*12:0,zi=x.loan?x.loan.bal*x.loan.rate/100:0;S.loans.forEach(l=>{if(l.pid===x.uid){pay+=l.pay*12;zi+=l.bal*l.rate/100;}});rates+=pay;
     if(L.bizTax>0)tax+=Math.max(0,r-m-zi)*L.bizTax*(S.upg.berater?0.85:1);}
   if(!(rent>0))return {pct:25,pctAll:25,rent:0,cost:0,rates:0,tax:0,costAll:0,gap:0};
@@ -928,14 +928,14 @@ function ivMove(S,uid){
 }
 // Automatik-Kauf nach Vorgaben: bestes Angebot, das Rendite, Preis, Reserve und Tragfähigkeit erfüllt
 function ivAutoSet(S,o){
-  if(!ivOn(S))return 'Du hast keine Immobilienverwaltung.';const A=Object.assign({},S.hk.co.auto,o);A.on=!!A.on;A.home=!!A.home;
+  if(!ivOn(S))return 'Du hast keine Immobilienverwaltung.';const A=Object.assign({},S.hk.co.auto,o);A.on=!!A.on;A.home=!!A.home;A.hol=!!A.hol;
   if(!(A.minY>=0&&A.minY<=20))return 'Mindestrendite zwischen 0 und 20 %.';if(!(A.maxP>=10000))return 'Höchstpreis mindestens 10.000 €.';
   if(!(A.ek>=20&&A.ek<=100))return 'Eigenkapital zwischen 20 und 100 %.';if(!(A.res>=0))return 'Reserve darf nicht negativ sein.';
   A.maxP=Math.round(A.maxP);A.res=Math.round(A.res);A.ek=Math.round(A.ek);S.hk.co.auto=A;return null;
 }
 function ivAutoPlan(S,x){
   const A=S.hk.co.auto,H=S.hk,T=PT[x.type],R=REG[x.lage];
-  if(T.norent||T.forst||T.hol||T.fix)return null;if(A.home&&R.foreign)return null;if(x.ask>A.maxP)return null;
+  if(T.norent||T.forst||T.fix||(T.hol&&!A.hol))return null;if(A.home&&R.foreign)return null;if(x.ask>A.maxP)return null;
   const rent=rentNow(x,S),y=rent*12/x.ask*100;if(!(y>=A.minY))return null;if(x.ask>propValue(x,S)*1.03)return null;
   const c0=buyCalc(S,x,0,{iv:1}),room=H.bal-A.res;let ek=Math.max(c0.minEk,c0.total*A.ek/100);
   for(let k=0;k<12;k++){
@@ -973,7 +973,13 @@ function hkMonth(S,money,mi){
   H.lm=H.m;H.m={};
 }
 // Bestand der vermieteten Objekte: Einheiten, Leerstand, Mieten, Kosten
-function hvRented(S){return S.props.filter(x=>!x.own&&!PT[x.type].norent&&!PT[x.type].hol);}
+function hvRented(S){return S.props.filter(x=>!x.own&&!PT[x.type].norent&&!PT[x.type].hol&&!x.fe);}
+// Ferienunterkünfte in der Verwaltung: Ferienwohnungen, Ferienhäuser und normale Objekte mit Ferienvermietung (x.fe)
+function hvHol(S){return S.props.filter(x=>!x.own&&!PT[x.type].norent&&(PT[x.type].hol||x.fe));}
+function hvAll(S){return S.props.filter(x=>!x.own&&!PT[x.type].norent);}
+function hvHolStats(S){const L=hvHol(S);let avg=0,lastR=0,lastC=0,tl=0,val=0,debt=0;
+  for(const x of L){val+=propValue(x,S);if(x.loan)debt+=x.loan.bal;S.loans.forEach(l=>{if(l.pid===x.uid)debt+=l.bal;});const lm=x.lm||{r:0,c:0,p:0};lastR+=lm.r;lastC+=lm.c;tl+=lm.p||0;if(!x.bau&&!x.san)avg+=rentNow(x,S);}
+  return {n:L.length,avg,lastR,lastC,tl,val,debt,cf:lastR-lastC-tl,gross:val>0?avg*12/val:0};}
 function hvStats(S){
   const L=hvRented(S);let units=0,vac=0,rent=0,mk=0,r12=0,c12=0,val=0,debt=0,pay=0,ks={index:0,staffel:0,frei:0},canUp=0,over=0,tl=0;
   for(const x of L){val+=propValue(x,S);if(x.loan){debt+=x.loan.bal;pay+=x.loan.pay;}S.loans.forEach(l=>{if(l.pid===x.uid){debt+=l.bal;pay+=l.pay;}});
@@ -1199,7 +1205,7 @@ function feSetup(S,x){return (3000+180*(x.m2||50))*S.inf+(FE_STRICT[x.lage]?1500
 function feOn(S,uid){
   if(ivGo(S,uid))return ivWith(S,()=>feOn(S,uid));
   const x=S.props.find(o=>o.uid===uid),e=feWhy(S,x);if(e)return e;if(x.fe)return 'Läuft schon als Ferienvermietung.';
-  const c=feSetup(S,x);if(c>S.cash+1e-6)return 'Für die Einrichtung ('+Math.round(c)+' €) reicht dein verfügbares Geld nicht.';
+  const c=feSetup(S,x);if(c>S.cash+1e-6)return 'Für die Einrichtung ('+Math.round(c)+' €) reicht '+(S._iv?'das Guthaben auf dem Hausverwaltungs-Konto':'dein verfügbares Geld')+' nicht.';
   S.cash-=c;addL(S,'Ferienwohnung: Einrichtung',-c);x.exp=(x.exp||0)+c;
   const out=!!x.ml&&!(x.vac>0);x.fe={since:S.day,last:0};x.ml=null;x.vac=Math.max(x.vac||0,out?3:1);return null;
 }
@@ -4095,7 +4101,7 @@ function drawHv(){const cv=$('cvHv');if(!cv)return;const H=S.hvH||[],ix={r:1,c:2
 /* ---------- Hausverwaltungs-Konto und Immobilienverwaltung (V103) ---------- */
 function hkSec(){
   const H=hkOf(S),g=hkSuggest(S);let h='<section><h2>Hausverwaltungs-Konto</h2><div class="pad">';
-  if(!H.on)return h+'<p class="note" style="margin-top:0">Ein eigenes Konto für deine Immobilien. Ein fester Anteil der Mieten fließt jeden Monat hinein. Daraus werden Instandhaltung, Reparaturen, Sanierungen und Umbauten bezahlt, solange Geld da ist. Du kannst jederzeit ein- und auszahlen.'+(g.rent>0?' Empfohlener Mietanteil für deinen Bestand: <b>'+g.pct+' %</b> nur für Instandhaltung und Rücklage, <b>'+(g.pctAll>100?'über 100':g.pctAll)+' %</b>, wenn das Konto auch Kreditraten und Steuer tragen soll.':'')+'</p><div class="acts"><button class="btn pri" data-act="hkopen">Konto eröffnen (kostenlos)</button></div></div></section>';
+  if(!H.on)return h+'<p class="note" style="margin-top:0">Ein eigenes Konto für deine Immobilien. Ein fester Anteil der Mieten fließt jeden Monat hinein. Daraus werden Instandhaltung, Reparaturen, Sanierungen und Umbauten bezahlt, solange Geld da ist. Du kannst jederzeit ein- und auszahlen.'+(g.rent>0?' Empfohlener Mietanteil für deinen Bestand: <b>'+g.pct+' %</b> nur für Instandhaltung und Rücklage, <b>'+(g.pctAll>100?'über 100':g.pctAll)+' %</b>, wenn das Konto auch Kreditraten und Steuer tragen soll.':'')+'</p><div class="acts"><button class="btn pri" data-act="hkopen">Konto eröffnen (kostenlos)</button></div></div></section>'+ivSec();
   const G=hkSplit(S),lauf=G.sf+G.sp,grp=(t,a,sum)=>a.length?'<p class="note" style="margin:10px 0 2px"><b>'+t+'</b></p><div class="kv">'+a.map(e=>'<span>'+e[0].replace(/^Privat: /,'')+'</span><span class="'+cls(e[1])+'">'+sgn(e[1])+'</span>').join('')+'<span class="sep"></span><span><b>Zusammen</b></span><span class="'+cls(sum)+'"><b>'+sgn(sum)+'</b></span></div>':'';
   h+='<div class="hvk">'+[['Kontostand',eur(H.bal),''],['Mietanteil',H.pct+' %',''],['Laufend letzter Monat',sgn(lauf),cls(lauf)],['Käufe und Umbuchungen',sgn(G.si),cls(G.si)]].map(x=>'<div><span>'+x[0]+'</span><b class="'+x[2]+'">'+x[1]+'</b></div>').join('')+'</div>';
   h+='<div class="kv">'+'<span>Daueraufträge</span><span>'+(H.daIn||H.daOut?[H.daIn?eur(H.daIn)+' im Monat aufs Konto':'',H.daOut?eur(H.daOut)+' im Monat zurück an dich':''].filter(Boolean).join(', '):'keine')+'</span><span>Konto zahlt bei privaten Objekten</span><span>'+(H.rates?'alles: Kosten, Kreditraten, Steuer':'nur Instandhaltung und Sanierung')+'</span>'+(g.rent>0?'<span>Empfohlen für Instandhaltung und Rücklage</span><span><b>'+g.pct+' %</b></span><span class="statsub">ca. '+eur(g.cost)+' im Jahr bei '+eur(g.rent)+' Miete</span><span></span><span>Empfohlen für alles mit Kreditraten</span><span><b class="'+(g.pctAll>100?'neg':'')+'">'+(g.pctAll>100?'über 100 %':g.pctAll+' %')+'</b></span><span class="statsub">ca. '+eur(g.costAll)+' im Jahr: dazu Raten '+eur(g.rates)+(g.tax>0.5?' und Steuer auf die Miete '+eur(g.tax):'')+'</span><span></span>':'<span class="statsub">Du hast keine privaten vermieteten Objekte. Bei Objekten der Firma geht immer die ganze Miete aufs Konto, der Mietanteil spielt dort keine Rolle.</span><span></span>')+'<span>Zins auf das Guthaben</span><span>'+pc(bankBase(S))+'</span><span>Bisher eingezahlt</span><span>'+eur(H.tin)+'</span><span>Bisher ausgezahlt</span><span>'+eur(H.tout)+'</span></div>';
@@ -4119,9 +4125,9 @@ function ivSec(){
   h+='<div class="hvk">'+[['Objekte der Firma',String(P.length),''],['Eigenkapital der Firma',eur(eq),cls(eq)],['Mieten nach Instandhaltung',eur(cv.rent),''],['Raten im Monat',eur(cv.ds),cv.full?'':'neg']].map(x=>'<div><span>'+x[0]+'</span><b class="'+x[2]+'">'+x[1]+'</b></div>').join('')+'</div>';
   h+='<div class="kv"><span>Wert der Objekte</span><span>'+eur(val)+'</span><span>Schulden der Firma</span><span class="'+(debt>0.5?'neg':'')+'">'+eur(debt>0.5?-debt:0)+'</span><span>Deine Einlagen</span><span>'+eur(C.basis)+'</span><span class="statsub">Diesen Teil kannst du steuerfrei wieder entnehmen</span><span></span>'+
    '<span>Steuern der Firma bisher</span><span>'+eur(C.tax)+'</span>'+(C.saved>0.5?'<span>Gespart gegenüber privat</span><span class="pos">'+eur(C.saved)+'</span>':'')+'<span>Laufende Kosten bisher</span><span>'+eur(C.fee)+'</span>'+(C.loss>0.5?'<span>Verlustvortrag</span><span>'+eur(C.loss)+'</span>':'')+(C.out>0.5?'<span>Entnommen</span><span>'+eur(C.out)+(C.otax>0.5?' (Steuer '+eur(C.otax)+')':'')+'</span>':'')+
-   '<span>Automatik-Kauf</span><span>'+(A.on?'<b>an</b>: ab '+pc(A.minY,1)+' Rendite, bis '+eur(A.maxP)+', '+A.ek+' % Eigenkapital, Reserve '+eur(A.res)+(A.home?', nur Inland':''):'aus')+'</span></div>';
+   '<span>Automatik-Kauf</span><span>'+(A.on?'<b>an</b>: ab '+pc(A.minY,1)+' Rendite, bis '+eur(A.maxP)+', '+A.ek+' % Eigenkapital, Reserve '+eur(A.res)+(A.home?', nur Inland':'')+(A.hol?', auch Ferienunterkünfte':''):'aus')+'</span></div>';
   if(!cv.full)h+='<p class="note"><b class="neg">Achtung:</b> Die Mieten der Firma decken ihre Raten gerade nicht ganz. Der Rest kommt vom Guthaben auf dem Konto. Ist es leer, wird von deinem verfügbaren Geld nachgeschossen.</p>';
-  h+='<p class="note">Kaufen: im Marktplatz bei „Ansehen und kaufen“ als Käufer die Immobilienverwaltung wählen. Eigene Objekte übergibst du unter „Mein Bestand“ mit „In Firma einbringen“.</p>';
+  h+='<p class="note">Kaufen: im Marktplatz bei „Ansehen und kaufen“ als Käufer die Immobilienverwaltung wählen. Das geht auch bei Ferienwohnungen und Ferienhäusern. Eigene Objekte übergibst du unter „Mein Bestand“ mit „In Firma einbringen“.</p>';
   h+='<div class="acts"><button class="btn pri" data-act="ivauto">Automatik-Kauf einstellen</button>'+(P.length?'':'<button class="btn" data-act="ivclose">Firma auflösen</button>')+'</div>';
   return h+'</div></section>';
 }
@@ -4134,8 +4140,9 @@ function openIvAuto(){
    '<label class="dl" for="ive">Eigenkapital in % (mindestens 20)</label><input id="ive" class="inp" type="text" inputmode="decimal" value="'+A.ek+'">'+
    '<label class="dl" for="ivr">Reserve, die auf dem Konto bleiben soll, in €</label><input id="ivr" class="inp" type="text" inputmode="decimal" value="'+A.res+'">'+
    '<label class="chk"><input type="checkbox" id="ivh"'+(A.home?' checked':'')+'> Nur im Inland kaufen</label>'+
-   '<p class="note">Mit den gespeicherten Vorgaben passen gerade '+n+' von '+S.offers.length+' Angeboten. Ferienobjekte, Grundstücke und Wald kauft die Automatik nicht.</p><p class="derr" id="derr"></p>';
-  dlg('Automatik-Kauf',body,[{t:'Abbrechen'},{t:'Speichern',pri:true,f:()=>{const e=ivAutoSet(S,{on:$('ivon').checked,minY:parseAmt($('ivy').value),maxP:parseAmt($('ivp').value),ek:parseAmt($('ive').value),res:parseAmt($('ivr').value),home:$('ivh').checked});if(e){derr(e);return false;}toast('Vorgaben gespeichert.');commit();}}]);
+   '<label class="chk"><input type="checkbox" id="ivf"'+(A.hol?' checked':'')+'> Auch Ferienwohnungen und Ferienhäuser kaufen</label>'+
+   '<p class="note">Mit den gespeicherten Vorgaben passen gerade '+n+' von '+S.offers.length+' Angeboten. Grundstücke und Wald kauft die Automatik nicht, Ferienunterkünfte nur mit dem Haken oben. Ihre Einnahmen schwanken mit der Saison, gerechnet wird mit dem Jahresschnitt.</p><p class="derr" id="derr"></p>';
+  dlg('Automatik-Kauf',body,[{t:'Abbrechen'},{t:'Speichern',pri:true,f:()=>{const e=ivAutoSet(S,{on:$('ivon').checked,minY:parseAmt($('ivy').value),maxP:parseAmt($('ivp').value),ek:parseAmt($('ive').value),res:parseAmt($('ivr').value),home:$('ivh').checked,hol:$('ivf').checked});if(e){derr(e);return false;}toast('Vorgaben gespeichert.');commit();}}]);
 }
 function hkAct(a,id){
   const H=hkOf(S);
@@ -4151,7 +4158,7 @@ function hkAct(a,id){
   if(a==='hkpct'){const g=hkSuggest(S),pa=Math.min(100,g.pctAll),ps=g.rent>0?[[g.pct,g.pct+' % (Instandhaltung)'],[pa,pa+' % (alles mit Raten)']]:[[10,'10 %'],[25,'25 %'],[50,'50 %'],[100,'100 %']];
     return askAmount({title:'Mietanteil für das Konto',label:'Anteil der Mieten in %',allowZero:true,init:H.pct,note:'So viel von jeder Miete deiner privaten Objekte geht direkt auf das Hausverwaltungs-Konto.'+(g.rent>0?' Empfehlung für deinen Bestand: <b>'+g.pct+' %</b> für Instandhaltung, übliche Reparaturen und eine Rücklage für Sanierungen. Soll das Konto auch Kreditraten und die Steuer auf die Miete tragen: <b>'+(g.pctAll>100?'über 100 %, es fehlen ca. '+eur(g.gap)+' im Monat':g.pctAll+' %')+'</b>.':' Du hast gerade keine privaten vermieteten Objekte, der Anteil greift erst, wenn du welche hast.'),
     presets:ps.filter((v,i,a)=>a.findIndex(z=>z[0]===v[0])===i).map(v=>({t:v[1],v:v[0],set:true})),ok:'Speichern',sel:{label:'Das Konto zahlt bei privaten Objekten',opts:[['1','Alles: Kosten, Kreditraten und Steuer auf die Miete'],['0','Nur Instandhaltung, Reparaturen und Sanierung']],cur:H.rates?'1':'0'},
-    info:v=>{const r=hvRented(S).filter(x=>!x.iv).reduce((t,x)=>t+(x.vac>0?0:rentNow(x,S)),0);return v<=100&&r>0?'Das sind bei den jetzigen Mieten ca. '+eur(r*v/100)+' im Monat.':'';},onOk:(v,m)=>{const e=hkPctSet(S,v,m==='1');if(!e)toast('Gespeichert.');return e;}});}
+    info:v=>{const r=hvAll(S).filter(x=>!x.iv&&!x.bau).reduce((t,x)=>t+(x.vac>0?0:rentNow(x,S)),0);return v<=100&&r>0?'Das sind bei den jetzigen Mieten ca. '+eur(r*v/100)+' im Monat.':'';},onOk:(v,m)=>{const e=hkPctSet(S,v,m==='1');if(!e)toast('Gespeichert.');return e;}});}
   if(a==='ivfound'){const c=ivFoundCalc(S);if(!H.on)return toast('Eröffne zuerst das Hausverwaltungs-Konto.');
     return dlg('Immobilienverwaltung gründen','<div class="kv"><span>Gründung (Notar, Register)</span><span>'+eur(c.cost)+' von deinem verfügbaren Geld</span><span>Stammkapital</span><span>mindestens '+eur(c.cap)+' auf dem Konto</span><span>Auf dem Konto</span><span class="'+(H.bal>=c.cap?'pos':'neg')+'">'+eur(H.bal)+'</span></div><p class="dn">Das Hausverwaltungs-Konto wird zum Konto der Firma. Was jetzt darauf liegt, gilt als deine Einlage. Deine privaten Objekte bleiben privat, bis du sie einbringst.</p><p class="derr" id="derr"></p>',
      [{t:'Abbrechen'},{t:'Gründen',pri:true,f:()=>{const e=ivFound(S);if(e){derr(e);return false;}dirty=true;saveLocal();toast('Immobilienverwaltung gegründet.');}}]);}
@@ -4166,9 +4173,10 @@ function hkAct(a,id){
 function vHvPage(){
   const back='<div class="acts pad" style="padding-top:0"><button class="btn" data-act="hvback">← Zurück zu Immobilien</button></div>';
   if(!hvOn(S))return '<section><h2>Hausverwaltung</h2>'+back+'<p class="note pad">Du hast noch keine Hausverwaltung. Unter <b>Verbessern</b> kannst du sie für '+eur(UPG.find(u=>u.id==='verw').cost)+' einstellen. Dann siehst du hier alle vermieteten Objekte, Einnahmen, Statistiken und Einstellungen an einem Ort.</p></section>';
-  const t=hvStats(S),R=hvRented(S),H=S.hvH||[],CF=hvCf(S);
+  const t=hvStats(S),R=hvRented(S),F=hvHol(S),H=S.hvH||[],CF=hvCf(S);
   let h='<section><h2>Hausverwaltung</h2>'+back;
-  if(!R.length)return h+'<p class="note pad">Noch keine vermieteten Objekte. Kauf eine Immobilie im Marktplatz.</p></section>'+hkSec();
+  if(!R.length&&!F.length)return h+'<p class="note pad">Noch keine vermieteten Objekte. Das Konto und die eigene Immobilienverwaltung kannst du trotzdem schon einrichten. Die Firma kauft dann im Marktplatz, auch Ferienwohnungen und Ferienhäuser.</p></section>'+hkSec();
+  if(!R.length)return h+'<p class="note pad">Keine dauerhaft vermieteten Objekte, nur Ferienunterkünfte (unten).</p></section>'+hkSec()+hvHolSec(F);
   const vq=t.units?t.vac/t.units:0,pot=t.mk>0?t.mk/Math.max(1,t.rent+(t.vac?t.mk*t.vac/t.units:0))-1:0;
   h+='<div class="pad"><div class="hvk">'+
    [['Mieten im Monat',eur(t.rent),''],['Überschuss letzter Monat',sgn(CF.all),cls(CF.all)],['Leerstand',t.vac+' von '+t.units+' ('+pc(vq*100,0)+')',vq>0.1?'neg':''],['Bruttorendite',pc(t.gross*100,1),'']].map(x=>'<div><span>'+x[0]+'</span><b class="'+x[2]+'">'+x[1]+'</b></div>').join('')+'</div>'+
@@ -4187,6 +4195,17 @@ function vHvPage(){
     h+='<div class="row"><div><span class="name">'+propLine(x)+'</span><span class="tag">'+REG[x.lage].name+' · '+st+(x.iv?' · Firma':'')+'</span></div><div class="val">'+eur(r)+'</div>'+
      '<div class="meta">Ortsüblich '+eur(mk)+(mk>0?' <span class="'+(r<mk*0.97?'pos':(r>mk*1.03?'neg':''))+'">('+(r<mk?'Potenzial '+eur(mk-r):'über Markt')+')</span>':'')+' · Rendite '+pc(val>0?r*12/val*100:0,1)+'<br>Letzter Monat: Miete '+eur(lm.r)+', Kosten '+eur(lm.c)+(lm.p?', Tilgung '+eur(lm.p):'')+' → <span class="'+cls(cf)+'">'+sgn(cf)+'</span>'+(x.loan?'<br>Restschuld '+eur(x.loan.bal)+' · '+pc(x.loan.rate):'')+'</div>'+
      '<div class="acts">'+(leaseOk(x)&&!x.bau?(UT[x.type]?'<button class="btn" data-act="wohn" data-id="'+x.uid+'">Wohnungen</button>':'<button class="btn" data-act="mlopen" data-id="'+x.uid+'">Miete</button>'):'')+(modOk(S,x)?'<button class="btn" data-act="mod" data-id="'+x.uid+'">Nachrüsten</button>':'')+(sanOk(S,x)?'<button class="btn" data-act="san" data-id="'+x.uid+'">Instandsetzen</button>':'')+'</div></div>';});
+  return h+'</section>'+hvHolSec(F);
+}
+// Ferienunterkünfte der Verwaltung: Ferienwohnungen, Ferienhäuser und Objekte mit Ferienvermietung, privat und Firma
+function hvHolSec(F){
+  if(!F.length)return '';const t=hvHolStats(S);
+  let h='<section><h2>Ferienunterkünfte</h2><div class="pad"><div class="kv"><span>Objekte</span><span>'+t.n+'</span><span>Erwarteter Ertrag im Schnitt</span><span>'+eur(t.avg)+' im Monat</span><span class="statsub">Die Einnahmen schwanken stark mit der Saison</span><span></span><span>Einnahmen letzter Monat</span><span class="pos">'+eur(t.lastR)+'</span><span>Kosten letzter Monat</span><span class="neg">'+eur(-t.lastC)+'</span><span>Überschuss letzter Monat</span><span class="'+cls(t.cf)+'">'+sgn(t.cf)+'</span><span class="statsub">nach Tilgung'+(ivOn(S)?', bei Firmenobjekten vor Firmensteuer':'')+'</span><span></span><span>Wert</span><span>'+eur(t.val)+'</span><span>Restschulden</span><span class="'+(t.debt>0.5?'neg':'')+'">'+(t.debt>0.5?eur(-t.debt):eur(0))+'</span><span>Bruttorendite</span><span>'+pc(t.gross*100,1)+'</span></div></div>';
+  F.slice().sort((a,b)=>rentNow(b,S)-rentNow(a,S)).forEach(x=>{const lm=x.lm||{r:0,c:0,p:0},cf=lm.r-lm.c-(lm.p||0),val=propValue(x,S),avg=rentNow(x,S);
+    const st=x.bau?'Im Bau':(x.san?'Sanierung':(x.vac>0?'Wird eingerichtet':(x.fe?'Ferienvermietung':'Ferienobjekt')));
+    h+='<div class="row"><div><span class="name">'+propLine(x)+'</span><span class="tag">'+REG[x.lage].name+' · '+st+(x.iv?' · Firma':'')+'</span></div><div class="val">'+eur(avg)+'</div>'+
+     '<div class="meta">Im Schnitt '+eur(avg)+' im Monat · Rendite '+pc(val>0?avg*12/val*100:0,1)+'<br>Letzter Monat: Einnahmen '+eur(lm.r)+', Kosten '+eur(lm.c)+(lm.p?', Tilgung '+eur(lm.p):'')+' → <span class="'+cls(cf)+'">'+sgn(cf)+'</span>'+(x.loan?'<br>Restschuld '+eur(x.loan.bal)+' · '+pc(x.loan.rate):'')+'</div>'+
+     '<div class="acts">'+(x.fe?'<button class="btn" data-act="feoff" data-id="'+x.uid+'">Wieder normal vermieten</button>':'')+(modOk(S,x)?'<button class="btn" data-act="mod" data-id="'+x.uid+'">Nachrüsten</button>':'')+(sanOk(S,x)?'<button class="btn" data-act="san" data-id="'+x.uid+'">Instandsetzen</button>':'')+'</div></div>';});
   return h+'</section>';
 }
 function vRe(){
@@ -4197,7 +4216,7 @@ function vRe(){
   const BS={neu:['Zuletzt gekauft',(a,b)=>b.day-a.day||b.uid-a.uid],alt:['Zuerst gekauft',(a,b)=>a.day-b.day||a.uid-b.uid],wh:['Wert, höchster zuerst',(a,b)=>bval(b)-bval(a)],wl:['Wert, niedrigster zuerst',(a,b)=>bval(a)-bval(b)],sh:['Restschuld, höchste zuerst',(a,b)=>(b.loan?b.loan.bal:0)-(a.loan?a.loan.bal:0)],sl:['Restschuld, niedrigste zuerst',(a,b)=>(a.loan?a.loan.bal:0)-(b.loan?b.loan.bal:0)],cf:['Monatlicher Überschuss, höchster zuerst',(a,b)=>bcf(b)-bcf(a)],ge:['Gesamtertrag in %, höchster zuerst',(a,b)=>((bval(b)-b.basis+(b.inc||0)-(b.exp||0))/b.basis)-((bval(a)-a.basis+(a.inc||0)-(a.exp||0))/a.basis)],ty:['Typ',(a,b)=>PT[a.type].name.localeCompare(PT[b.type].name)||bval(b)-bval(a)],rg:['Region',(a,b)=>REG[a.lage].name.localeCompare(REG[b.lage].name)||bval(b)-bval(a)]};
   if(!BS[rsel.bsort])rsel.bsort='neu';
   if(S.props.length>1)h+='<label class="dl" for="selBS">Sortierung</label><select id="selBS" class="inp">'+Object.keys(BS).map(k=>'<option value="'+k+'"'+(rsel.bsort===k?' selected':'')+'>'+BS[k][0]+'</option>').join('')+'</select>';
-  if(S.props.some(x=>leaseOk(x)&&!x.own))h+='<div class="acts pad" style="padding-top:8px">'+(hvOn(S)?'<button class="btn pri" data-act="hvpage">Hausverwaltung öffnen</button>':'')+'<button class="btn" data-act="hvopen">'+(hvOn(S)?'Vorgaben':'Hausverwaltung: Vorgaben')+'</button></div>';
+  if(hvOn(S)||S.props.some(x=>leaseOk(x)&&!x.own))h+='<div class="acts pad" style="padding-top:8px">'+(hvOn(S)?'<button class="btn pri" data-act="hvpage">Hausverwaltung öffnen</button>':'')+'<button class="btn" data-act="hvopen">'+(hvOn(S)?'Vorgaben':'Hausverwaltung: Vorgaben')+'</button></div>';
   if(S.props.length>1){const allC=S.props.every(x=>S.pfold[x.uid]);h+='<div class="acts pad" style="padding-top:8px"><button class="btn" data-act="pfoldall" data-id="'+(allC?'open':'close')+'">'+(allC?'Alle aufklappen':'Alle zuklappen')+'</button></div>';}
   S.props.forEach(x=>ensureUnits(S,x));
   S.props.slice().sort(BS[rsel.bsort][1]).forEach(x=>{
