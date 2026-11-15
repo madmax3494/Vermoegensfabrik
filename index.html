@@ -283,6 +283,24 @@ button.chip:hover{background:var(--accent-soft);color:var(--accent)}
   .tabs{--ml:0px;--mr:0px;-webkit-mask-image:linear-gradient(to right,transparent 0,#000 var(--ml),#000 calc(100% - var(--mr)),transparent 100%);mask-image:linear-gradient(to right,transparent 0,#000 var(--ml),#000 calc(100% - var(--mr)),transparent 100%)}
   .tabs[data-ml="1"]{--ml:30px}.tabs[data-mr="1"]{--mr:30px}
 }
+/* ---------- V109: kleiner Kopf beim Scrollen, feste Leiste, Auswahl „Mehr“ ---------- */
+.moregrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:4px 0 2px}
+.moregrid button{display:flex;align-items:center;gap:10px;min-height:52px;padding:10px 12px;border:1px solid var(--line);border-radius:14px;background:var(--panel2);color:var(--ink);font:600 14.5px var(--body);text-align:left;cursor:pointer;min-width:0}
+.moregrid button svg{width:22px;height:22px;flex:none;color:var(--accent)}
+.moregrid button span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.moregrid button[aria-current="page"]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+@media (max-width:700px){
+  .tabs{padding-left:max(4px,env(safe-area-inset-left));padding-right:max(4px,env(safe-area-inset-right))}
+  .tabs button{flex:1 1 0;min-width:0;padding:4px 0;font-size:10px;letter-spacing:-.01em}
+  .tabs button span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .top.mini{padding-bottom:6px}
+  .top.mini .stats{gap:6px;grid-template-columns:minmax(0,auto) minmax(0,1fr)}
+  .top.mini .stat:nth-child(n+3),.top.mini .statsub{display:none}
+  .top.mini .stat{padding:5px 10px;display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+  .top.mini .stat span{font-size:10.5px;white-space:nowrap}
+  .top.mini .stat b{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .top.mini .timebar{margin-top:6px}
+}
 </style>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="symbol-180.png">
@@ -293,7 +311,7 @@ button.chip:hover{background:var(--accent-soft);color:var(--accent)}
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f3f5f9" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0b1020" media="(prefers-color-scheme: dark)">
-<script>window.__web="108";</script>
+<script>window.__web="109";</script>
 </head>
 <body>
 <div class="wrap">
@@ -2405,7 +2423,7 @@ function normalize(o){
   S.fp={};if(o.fp&&typeof o.fp==='object')for(const k in o.fp)if(o.fp[k]>0)S.fp[k]=o.fp[k];
   {const v=o.vbl&&typeof o.vbl==='object'?o.vbl:{},f=x=>isFinite(x)&&x>0?x:0;S.vbl={pts:f(v.pts),an:f(v.an),ag:f(v.ag)};}
   {const t=o.tgDa&&typeof o.tgDa==='object'?o.tgDa:{};S.tgDa={};for(const k in t)if(BANKS.some(b=>b.id===k)&&t[k]>=1&&t[k]<=20000)S.tgDa[k]=Math.round(t[k]);}
-  {const u=o.ui&&typeof o.ui==='object'?o.ui:{},ob=x=>{const r={};if(x&&typeof x==='object')for(const k in x)if(typeof x[k]==='string'||x[k]===true||x[k]===1)r[k]=x[k];return r;};S.ui={c:ob(u.c),o:ob(u.o),sub:ob(u.sub),fp:u.fp!==false,tour:u.tour===0?0:1};}
+  {const u=o.ui&&typeof o.ui==='object'?o.ui:{},ob=x=>{const r={};if(x&&typeof x==='object')for(const k in x)if(typeof x[k]==='string'||x[k]===true||x[k]===1)r[k]=x[k];return r;};S.ui={c:ob(u.c),o:ob(u.o),sub:ob(u.sub),fp:u.fp!==false,tour:u.tour===0?0:1,cdef:u.cdef?1:0};}
   S.pfold={};if(o.pfold&&typeof o.pfold==='object')for(const k in o.pfold)if(o.pfold[k])S.pfold[k]=1;S.joy=isFinite(o.joy)?Math.max(0,Math.min(100,o.joy)):50;S.mem=o.mem>0?o.mem:0;S.gk=o.gk>0?o.gk:0;S.gkPlan=o.gkPlan>0?Math.min(5000,Math.round(o.gkPlan)):0;
   S.hob={};if(o.hob&&typeof o.hob==='object'){for(const k in o.hob)if(HOBY[k]&&Object.keys(S.hob).length<HOB_MAX)S.hob[k]=o.hob[k];}
   S.gExp={};if(o.gExp&&typeof o.gExp==='object'){for(const k in o.gExp)if(GBY[k]&&o.gExp[k]>0)S.gExp[k]=o.gExp[k]|0;}
@@ -3676,7 +3694,7 @@ function pc(x,d){d=d==null?2:d;return x.toLocaleString('de-DE',{minimumFractionD
 
 const KEY='vermoegensfabrik-v2';
 // Versionsnummer, bei jeder Veröffentlichung hochzählen (bauen-web.sh liest sie hier)
-const VF_VERSION='108';
+const VF_VERSION='109';
 const $=id=>document.getElementById(id);
 const TAB_ICONS={
   uebers:'M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z',
@@ -3698,7 +3716,10 @@ const TAB_ICONS={
 };
 const TABS0=[['plan','Fahrplan'],['uebers','Übersicht'],['bank','Bank'],['wp','Wertpapiere'],['sach','Sachwerte'],['re','Immobilien'],['biz','Betriebe'],['job','Beruf'],['life','Leben'],['genuss','Genuss'],['fam','Partner'],['rente','Rente'],['stat','Statistik'],['erf','Erfolge'],['up','Verbessern']];
 const fpOn=()=>!S||!S.ui||S.ui.fp!==false;
-const MORE=['fam','rente','stat','erf','up'];
+// Schmale Fenster (iPhone): fünf feste Reiter in der Leiste, alles andere unter „Mehr“ (Auswahlfenster). Breite Fenster: wie bisher.
+const PRIM=['uebers','bank','wp','re','job'],MORE0=['fam','rente','stat','erf','up'],MORE=MORE0.slice();
+const narrow=()=>typeof matchMedia==='function'&&matchMedia('(max-width:700px)').matches;
+function moreSync(){const l=narrow()?TABS0.map(t=>t[0]).filter(k=>!PRIM.includes(k)&&(k!=='plan'||fpOn())):MORE0;MORE.length=0;MORE.push(...l);}
 const tabOf=t=>t==='hv'?'re':MORE.includes(t)?'mehr':t;
 const tabList=()=>TABS0.filter(t=>(t[0]!=='plan'||fpOn())&&!MORE.includes(t[0])).concat([['mehr','Mehr']]);
 const TABS=TABS0.slice(1);
@@ -4641,7 +4662,7 @@ function renderView(){
   const v=$('view');
   const map={plan:vPlan,hv:vHvPage,uebers:vOver,bank:vBank,wp:vWp,sach:vSach,re:vRe,biz:vBiz,job:vJob,life:vLife,genuss:vGenuss,erf:vAch,stat:vStat,fam:vFam,rente:vRente,up:vUp};
   buildTabs();if(tab==='plan'&&!fpOn())tab='uebers';
-  let mb='';if(MORE.includes(tab)){S.ui.sub.mehr=tab;mb='<div class="subtabs morebar" role="tablist">'+MORE.map(k=>'<button type="button" class="chip" data-act="gotab" data-id="'+k+'" aria-pressed="'+(k===tab)+'">'+TABS0.find(t=>t[0]===k)[1]+'</button>').join('')+'</div>';}
+  let mb='';if(MORE.includes(tab)){S.ui.sub.mehr=tab;if(!narrow())mb='<div class="subtabs morebar" role="tablist">'+MORE.map(k=>'<button type="button" class="chip" data-act="gotab" data-id="'+k+'" aria-pressed="'+(k===tab)+'">'+TABS0.find(t=>t[0]===k)[1]+'</button>').join('')+'</div>';}
   v.innerHTML=mb+decCard()+(tab==='uebers'?fpMini():'')+map[tab]();
   enhance(v);
   if(tab==='rente')drawVor($('cvVor'));
@@ -5216,8 +5237,19 @@ function updBar(){if($('updbar'))return;const d=document.createElement('div');d.
   d.style.cssText='position:fixed;left:12px;right:12px;top:max(env(safe-area-inset-top,0px),10px);z-index:9999;display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:14px;background:var(--panel);color:var(--ink);border:1px solid var(--line);box-shadow:var(--shadow);font:500 14px var(--body)';
   d.innerHTML='<span>Neue Version ist da.</span><span style="display:flex;gap:8px;flex:none"><button class="btn" type="button" id="updno">Später</button><button class="btn pri" type="button" id="updgo">Jetzt laden</button></span>';
   document.body.appendChild(d);$('updno').addEventListener('click',()=>d.remove());$('updgo').addEventListener('click',()=>{saveLocal();location.reload();});}
+// Auswahlfenster hinter „Mehr“ (schmale Fenster)
+function openMore(){
+  const body='<div class="moregrid">'+MORE.map(k=>'<button type="button" data-more="'+k+'"'+(k===tab?' aria-current="page"':'')+'><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="'+(TAB_ICONS[k]||'')+'"/></svg><span>'+TABS0.find(t=>t[0]===k)[1]+'</span></button>').join('')+'</div>';
+  dlg('Mehr',body,[{t:'Schließen'}],()=>{$('mb').querySelectorAll('[data-more]').forEach(b=>b.addEventListener('click',()=>{closeDlg();goTab(b.dataset.more);const v=$('view');v.classList.remove('enter');void v.offsetWidth;v.classList.add('enter');}));});
+}
+// Kopfbereich: beim Herunterscrollen auf eine Zeile verkleinern (nur schmale Fenster, per CSS). Zwei Schwellen, damit nichts flackert.
+function topMini(){const t=document.querySelector('.top');if(!t)return;const y=window.scrollY||0,m=t.classList.contains('mini');if(!m&&y>150)t.classList.add('mini');else if(m&&y<50)t.classList.remove('mini');}
+// Einmalige Vorgabe: selten gebrauchte Abschnitte langer Seiten zugeklappt, bei mehr als drei Immobilien der Bestand in Kurzform. Danach gilt, was der Spieler auf- oder zuklappt.
+const CDEF=['uebers/Markt','uebers/Ruhestand','uebers/Status','hv/Vorgaben','hv/Entwicklung','rente/Zwischenbilanz','rente/Entwicklung deiner Vorsorge'];
+function uiDefaults(){if(!S||!S.ui||S.ui.cdef)return;S.ui.cdef=1;CDEF.forEach(k=>{S.ui.c[k]=1;});if(S.props.length>3)S.props.forEach(x=>{S.pfold[x.uid]=1;});dirty=true;}
 function webInit(){
-  {const t=$('tabs');if(t){t.addEventListener('scroll',tabsEdge,{passive:true});addEventListener('resize',tabsEdge);setTimeout(tabsShow,300);}}
+  {const t=$('tabs');if(t){t.addEventListener('scroll',tabsEdge,{passive:true});addEventListener('resize',()=>{const k=tabsKey;buildTabs();if(k!==tabsKey&&S){if(tab==='mehr')tab='uebers';renderView();}tabsEdge();});setTimeout(tabsShow,300);}}
+  addEventListener('scroll',topMini,{passive:true});
   if(!window.__web)return;
   setTimeout(bakAsk,1500);
   if(!('serviceWorker' in navigator)||location.protocol==='file:')return;
@@ -5397,7 +5429,7 @@ const TOUR=[
  {tab:'uebers',el:'#app .stats',t:'Dein Geld auf einen Blick',b:'<b>Verfügbar</b> ist das Geld auf deinem Girokonto. Davon gehen Miete, Einkäufe und alle anderen Ausgaben ab. <b>Gesamtvermögen</b> ist alles, was dir gehört (Konten, Anlagen, Immobilien), abzüglich deiner Schulden.'},
  {el:'#speed',t:'Die Zeit läuft von selbst',b:'Jeden Monat kommt dein Gehalt, Miete und Ausgaben werden abgebucht. Mit ⏸ hältst du an, mit ×5 und ×10 läuft die Zeit schneller. Willst du in Ruhe lesen oder entscheiden: einfach anhalten.'},
  {tab:'uebers',el:'.fpmini',t:'Dein nächster Schritt',b:'Diese Karte schlägt dir immer den nächsten sinnvollen Schritt vor. Erledigst du ihn, hakt er sich von selbst ab. Alle Schritte stehen im Reiter Fahrplan.'},
- {el:'#tabs',t:'Die Reiter',b:'Hier wechselst du zwischen den Bereichen: Bank, Wertpapiere, Immobilien, Beruf und mehr. Die Leiste lässt sich zur Seite wischen.'},
+ {el:'#tabs',t:'Die Reiter',b:'Hier wechselst du zwischen den Bereichen: Bank, Wertpapiere, Immobilien und Beruf. Alles Weitere wie Sachwerte, Betriebe, Rente oder Statistik findest du unter „Mehr“.'},
  {tab:'bank',el:()=>h2el('Tagesgeld'),t:'Zuerst: der Notgroschen',b:()=>'Leg zuerst etwa drei Monatsausgaben aufs <b>Tagesgeld</b>, bei dir ungefähr '+eur(Math.round(spendM(S)*3/100)*100)+'. Das Geld bringt Zinsen und ist jederzeit verfügbar, wenn zum Beispiel das Auto kaputtgeht oder du den Job verlierst. Dazu bei einer Bank auf <b>Einzahlen</b> tippen, oder mit <b>Dauerauftrag</b> jeden Monat automatisch etwas zurücklegen.'},
  {tab:'wp',el:()=>{const n=document.querySelector('#view .name[data-id="etf"]');return n&&n.closest('.row');},t:'Danach: ein ETF-Sparplan',b:'Ein <b>ETF</b> ist ein Korb aus sehr vielen Aktien, dieser hier aus rund 1.400 Firmen weltweit. Er schwankt, bringt auf lange Sicht aber im Schnitt etwa 7 % im Jahr. Mit einem <b>Sparplan</b> wird jeden Monat automatisch für einen festen Betrag gekauft. So wächst dein Vermögen ohne Aufwand.'},
  {t:'Entscheidungen und Begriffe',b:'Ab und zu passiert etwas im Leben: ein Jobangebot, eine Erbschaft, eine kaputte Heizung. Dann öffnet sich ein Fenster mit mehreren Möglichkeiten, meist hast du zwei Monate Zeit. <span class="gl">Gepunktet unterstrichene Begriffe</span> kannst du antippen, dann erscheint eine kurze Erklärung. Viel Erfolg!'}
@@ -5445,7 +5477,7 @@ function tourInit(){
   addEventListener('keydown',e=>{if(tourI>=0&&e.key==='Escape')tourEnd();});
   $('tourbtn').addEventListener('click',()=>{if(!S)return;const d=$('tourbtn').closest('details');if(d)d.open=false;tourGo(0);});
 }
-function showApp(){startOpen=false;$('start').style.display='none';$('app').style.display='block';updateHeader();renderView();if(S&&S.ui.tour===0&&tourI<0)tourGo(0);}
+function showApp(){uiDefaults();startOpen=false;$('start').style.display='none';$('app').style.display='block';updateHeader();renderView();if(S&&S.ui.tour===0&&tourI<0)tourGo(0);}
 function showStart(){
   {const bx=$('start').querySelector('.in');if(startHTML===null)startHTML=bx.innerHTML;else{bx.innerHTML=startHTML;bindLv();}}
   startOpen=true;$('app').style.display='none';$('start').style.display='block';
@@ -5464,13 +5496,13 @@ function loop(){
   if(needRender&&!pressing&&!(document.activeElement&&document.activeElement.tagName==='SELECT')){needRender=false;renderView();}
 }
 let tabsKey='';
-function buildTabs(){const tabs=$('tabs');const key=tabList().map(t=>t[0]).join();if(key===tabsKey)return;tabsKey=key;tabs.textContent='';
+function buildTabs(){moreSync();const tabs=$('tabs');const key=tabList().map(t=>t[0]).join();if(key===tabsKey)return;tabsKey=key;tabs.textContent='';
   tabList().forEach(([k,n])=>{const b=document.createElement('button');b.type='button';b.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="'+(TAB_ICONS[k]||'')+'"/></svg><span>'+n+'</span>';b.dataset.tab=k;b.setAttribute('role','tab');b.setAttribute('aria-selected',k===tabOf(tab)?'true':'false');tabs.appendChild(b);});
 }
 function start(data){
   const tabs=$('tabs');
   buildTabs();
-  tabs.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;tab=b.dataset.tab==='mehr'?(MORE.includes(S&&S.ui.sub.mehr)?S.ui.sub.mehr:'stat'):b.dataset.tab;tabs.querySelectorAll('button').forEach(x=>x.setAttribute('aria-selected',x===b?'true':'false'));renderView();window.scrollTo(0,0);const v=$('view');v.classList.remove('enter');void v.offsetWidth;v.classList.add('enter');b.scrollIntoView({block:'nearest',inline:'nearest'});});
+  tabs.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.tab==='mehr'&&narrow())return openMore();tab=b.dataset.tab==='mehr'?(MORE.includes(S&&S.ui.sub.mehr)?S.ui.sub.mehr:'stat'):b.dataset.tab;tabs.querySelectorAll('button').forEach(x=>x.setAttribute('aria-selected',x===b?'true':'false'));renderView();window.scrollTo(0,0);const v=$('view');v.classList.remove('enter');void v.offsetWidth;v.classList.add('enter');b.scrollIntoView({block:'nearest',inline:'nearest'});});
   $('view').addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b||b.disabled)return;act.x=e.clientX;act.y=e.clientY;act(b.dataset.act,b.dataset.id);});
   $('view').addEventListener('change',e=>{if(e.target.id==='selBrand'){sel.brand=e.target.value;renderView();}if(e.target.id==='selReg'){rsel.reg=e.target.value;renderView();}if(e.target.id==='selBS'){rsel.bsort=e.target.value;renderView();}if(e.target.id==='selType'){rsel.type=e.target.value;renderView();}if(e.target.id==='selSort'){rsel.sort=e.target.value;renderView();}});
   $('speed').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;speed=Number(b.dataset.s);$('speed').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b?'true':'false'));});
