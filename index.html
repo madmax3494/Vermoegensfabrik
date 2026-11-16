@@ -309,7 +309,7 @@ button.chip:hover{background:var(--accent-soft);color:var(--accent)}
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f3f5f9" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0b1020" media="(prefers-color-scheme: dark)">
-<script>window.__web="114";</script>
+<script>window.__web="115";</script>
 </head>
 <body>
 <div class="wrap">
@@ -810,8 +810,11 @@ function leaseCalc(S,m,down){
   return {P,R,n,i,D,rate:(F-R)/n+(F+R)/2*i/1200};
 }
 function leaseTotal(S){let t=0;S.sach.forEach(it=>{if(it.lease&&it.lease.due==null)t+=it.lease.rate;});return t;}
+// Preis und Mietrendite je Gegend und Objektart. Villa (V115): überall baubar, wo Häuser stehen; ohne eigenen Villen-Markt gilt der Hauspreis +25 %, Rendite 80 % davon.
+const VILLA_FB={p:1.25,y:0.8};
+function regT(lage,type){const t=REG[lage].t;if(t[type])return t[type];if(type==='villa'&&t.haus)return [t.haus[0]*VILLA_FB.p,t.haus[1]*VILLA_FB.y];return null;}
 function propValue(x,S){
-  const e=REG[x.lage].t[x.type];
+  const e=regT(x.lage,x.type);
   return (PT[x.type].fix?e[0]:x.m2*e[0])*S.rei[x.lage]*x.q*(x.fo?1-0.6*x.fo.kahl/Math.max(0.01,waldHa(x)):1)+(x.bau?x.bau.paid*0.95:0);
 }
 const COMM={halle:1,markt:1,laden:1,buero:1,stell:1,garage:1};
@@ -2764,7 +2767,7 @@ function pachtMonth(S,x,money){
 }
 function bauOpts(S,x){
   if(!x||x.type!=='grund'||x.bau||pachtOn(S,x))return [];
-  return BAU.filter(b=>REG[x.lage].t[b.type]);
+  return BAU.filter(b=>regT(x.lage,b.type));
 }
 function bauCalc(S,x,b,ls,A){
   const R=REG[x.lage],base=b.m2*b.c*(0.95+0.04*Math.min(4,R.pr))*S.prices.ix_bau.p/100,land=propValue(x,S)*((x.m2-b.plot>=400)?b.plot/x.m2:1);
@@ -2775,7 +2778,7 @@ function bauCalc(S,x,b,ls,A){
   const bank=Math.max(1,loanRate(S,ltv)+0.4+(R.foreign?0.6:0)),np=total*ls,kcap=A.ex.includes('kfw')&&!R.foreign?(b.we||1)*(A.ex.includes('qng')?150000:100000):0,kfw=Math.min(np,kcap),kr=kfwRate(S);
   const rate=np>0?(kfw*kr+(np-kfw)*bank)/np:bank,pay=fin*(rate+2)/1200;
   return {bank,kfw,kcap,kr,total,base,core,ec,ev,vr,radd,rf:pk.rf*(1+rp),A,land,fin,ltv,rate,pay,inst:total/b.n,minEk:Math.max(0.1,lv(S).minEK),
-    val:(land+total*vr)*1.06,rent:(land+base*pk.vf)*1.06*REG[x.lage].t[b.type][1]/12*pk.rf*(1+rp)+radd*S.inf};
+    val:(land+total*vr)*1.06,rent:(land+base*pk.vf)*1.06*regT(x.lage,b.type)[1]/12*pk.rf*(1+rp)+radd*S.inf};
 }
 function bauStart(S,uid,bid,ls,A){
   const x=S.props.find(o=>o.uid===uid),b=BBY[bid];
@@ -2804,7 +2807,7 @@ function bauMonth(S,x,rnd,money){
   if(b.m>=b.n)bauDone(S,x,rnd);
 }
 function bauDone(S,x,rnd){
-  const b=x.bau,e=REG[x.lage].t[b.type],f=0.97+rnd()*0.18,target=(b.land+b.paid*(b.vr||1))*f,rbase=(b.land+b.paid*(b.cs!=null?b.cs:1)*(b.vf||1))*f;
+  const b=x.bau,e=regT(x.lage,b.type),f=0.97+rnd()*0.18,target=(b.land+b.paid*(b.vr||1))*f,rbase=(b.land+b.paid*(b.cs!=null?b.cs:1)*(b.vf||1))*f;
   x.type=b.type;x.m2=b.m2;x.q=target/(b.m2*e[0]*S.rei[x.lage]);
   x.rent0=PT[b.type].norent?0:Math.round(rbase*e[1]*(0.95+rnd()*0.1)/12*(b.rf||1)+(b.radd||0)*S.inf);
   if(b.aus)x.aus=b.aus;if(b.we)x.we=b.we;x.units=null;if(b.kfw&&x.loan)x.loan.kfw=Math.round(Math.min(b.kfw,x.loan.bal));
@@ -3696,7 +3699,7 @@ function pc(x,d){d=d==null?2:d;return x.toLocaleString('de-DE',{minimumFractionD
 
 const KEY='vermoegensfabrik-v2';
 // Versionsnummer, bei jeder Veröffentlichung hochzählen (bauen-web.sh liest sie hier)
-const VF_VERSION='114';
+const VF_VERSION='115';
 const $=id=>document.getElementById(id);
 const TAB_ICONS={
   uebers:'M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z',
