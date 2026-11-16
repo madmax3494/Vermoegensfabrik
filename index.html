@@ -309,7 +309,7 @@ button.chip:hover{background:var(--accent-soft);color:var(--accent)}
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f3f5f9" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0b1020" media="(prefers-color-scheme: dark)">
-<script>window.__web="122";</script>
+<script>window.__web="123";</script>
 </head>
 <body>
 <div class="wrap">
@@ -348,6 +348,7 @@ button.chip:hover{background:var(--accent-soft);color:var(--accent)}
       <p class="note" id="syncnote"></p>
       <div class="tools">
         <button type="button" id="fptog">Reiter Fahrplan: an</button>
+        <button type="button" id="tasktog">Jahresaufgaben anzeigen: an</button>
         <button type="button" id="tabset">Leiste anpassen</button>
         <button type="button" id="tourbtn">Einführung zeigen</button>
         <button type="button" id="poptog">Pop-ups bei Entscheidung und Jahresende: an</button>
@@ -3914,7 +3915,7 @@ function pc(x,d){d=d==null?2:d;return x.toLocaleString('de-DE',{minimumFractionD
 
 const KEY='vermoegensfabrik-v2';
 // Versionsnummer, bei jeder Veröffentlichung hochzählen (bauen-web.sh liest sie hier)
-const VF_VERSION='122';
+const VF_VERSION='123';
 const $=id=>document.getElementById(id);
 const TAB_ICONS={
   uebers:'M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z',
@@ -4119,7 +4120,7 @@ function vStat(){
 function vOver(){
   const P=parts(S),has=Object.keys(S.led.last).length>0,led=has?S.led.last:S.led.cur;
   const jb=JBY[S.job.id];
-  let h=S.retired?'<section><h2>Ruhestand</h2><div class="pad"><div class="kv"><span>Alter</span><span>'+Math.floor(ageOf(S))+' Jahre</span><span>Rente</span><span class="pos">'+eur(renteMonth0())+' im Monat</span><span>Erholung</span><span>'+Math.round(S.rest)+' von 100</span></div></div></section>':'<section><h2>Beruf</h2><div class="pad"><div class="kv"><span>Job</span><span>'+(fiLead(S)?'Geschäftsführer ('+(S.firm.name||'eigene Firma')+')':S.self?'Selbstständig ('+jb.f+')':jb.n+(S.unemp?' (arbeitslos)':''))+'</span><span>Gehalt netto</span><span class="pos">'+eur(gehaltNow(S))+' im Monat</span><span>Alter</span><span>'+Math.floor(ageOf(S))+' Jahre'+(S.retired?' (Rentner)':'')+'</span><span>Erholung</span><span class="'+(S.rest<30?'neg':'')+'">'+Math.round(S.rest)+' von 100'+(S.sick>0?' (krank)':'')+'</span></div>'+(S.study?'<p class="note">Du lernst: '+QBY[S.study.id].name+' (noch '+S.study.left+' Monate).</p>':'')+'</div></section>';
+  let h=S.retired?'<section><h2>Ruhestand</h2><div class="pad"><div class="kv"><span>Alter</span><span>'+Math.floor(ageOf(S))+' Jahre</span><span>Rente</span><span class="pos">'+eur(renteMonth0())+' im Monat</span><span>Erholung</span><span>'+Math.round(S.rest)+' von 100</span></div></div></section>':'<section><h2>Beruf</h2><div class="pad"><div class="kv"><span>Job</span><span>'+(fiLead(S)?'Geschäftsführer ('+(S.firm.name||'eigene Firma')+')':S.self?'Selbstständig ('+jb.f+')':jb.n+(S.unemp?' (arbeitslos)':''))+'</span><span>Gehalt netto</span><span class="'+(payWhy()?'neg':'pos')+'">'+eur(gehaltNow(S))+' im Monat'+(payWhy()?'<br><small>'+payWhy()+'</small>':'')+'</span><span>Alter</span><span>'+Math.floor(ageOf(S))+' Jahre'+(S.retired?' (Rentner)':'')+'</span><span>Erholung</span><span class="'+(S.rest<30?'neg':'')+'">'+Math.round(S.rest)+' von 100'+(S.sick>0?' (krank)':'')+'</span></div>'+(S.study?'<p class="note">Du lernst: '+QBY[S.study.id].name+' (noch '+S.study.left+' Monate).</p>':'')+'</div></section>';
   h+='<section><h2>Genuss</h2><div class="pad"><div class="kv"><span>Genuss-Konto</span><span><b>'+eur(S.gk)+'</b>'+(S.gkPlan>0?' (+'+eur(S.gkPlan)+' im Monat)':'')+'</span><span>Lebensfreude</span><span class="'+(S.joy<25?'neg':(S.joy>=70?'pos':''))+'">'+Math.round(S.joy)+' von 100</span><span>Erholung</span><span class="'+(S.rest<30?'neg':(S.rest>=80?'pos':''))+'">'+Math.round(S.rest)+' von 100</span></div></div></section>';
   const segs=[['Verfügbares Geld',P.cash,'--c1'],['Bank',P.bank,'--c2'],['Wertpapiere',P.sec,'--c3'],['Gold',P.gold,'--c4'],['Sachwerte',P.sach,'--c5'],['Immobilien',P.re,'--c6'],['Betriebe',P.biz,'--c7'],['Altersvorsorge',P.vor,'--c8'],['Genuss-Konto',P.gk,'--accent']];
   const tot=segs.reduce((s,x)=>s+x[1],0)||1;
@@ -4679,10 +4680,19 @@ function suSec(){
   return h+'<p class="note pad">Frühe Phasen (Pre-Seed) sind billig, aber riskant. Das Team zeigt grob, wie gut die Firma ist, garantiert aber nichts. Gewinne beim Verkauf werden versteuert.</p></section>';
 }
 
+/* V123: Grund für gekürztes Gehalt direkt am Gehalt zeigen */
+function payWhy(){
+  if(!S||S.retired||S.unemp||S.self)return '';
+  if(S.long>0)return 'Schwer erkrankt, noch etwa '+S.long+' Monat'+(S.long>1?'e':'')+': nur 30 % Gehalt'+(S.ins.bu?', die BU-Versicherung zahlt zusätzlich 60 % ('+eur(0.6*baseNet(S))+')':' (ohne BU-Versicherung)');
+  if(S.sick>0)return 'Krank wegen Erschöpfung, noch '+S.sick+' Monat'+(S.sick>1?'e':'')+': 60 % Gehalt';
+  if(S.study&&!S.study.edu&&QBY[S.study.id]){const q=QBY[S.study.id];if(q.ft)return 'Vollzeit-Fortbildung ('+q.name+'): 40 % Gehalt';if(q.m>12)return 'Fortbildung neben dem Job ('+q.name+'): 85 % Gehalt';}
+  if(S.rest<30)return 'Erschöpft (Erholung unter 30): 10 % weniger';
+  return '';
+}
 function jobExtra(){
   let h='';
   if(S.unemp)return '<p class="note neg">Du bist arbeitslos. '+((S.day-S.unemp.since)/30<12?'Du bekommst 60 % deines letzten Nettogehalts.':'Das Arbeitslosengeld ist ausgelaufen, du bekommst nur noch 30 %.')+' Bewirb dich im Stellenmarkt, auch auf deine alte Stelle.</p>';
-  if(S.long>0)h+='<p class="note neg">Du bist schwer erkrankt, noch etwa '+S.long+' Monate. '+(S.ins.bu?'Deine BU-Versicherung zahlt 60 % vom Netto.':'Du bekommst nur 30 % Gehalt.')+'</p>';
+  
   const e=negCan(S);
   h+='<div class="row"><div><span class="name">Gehaltsverhandlung</span></div><div class="val">'+Math.round(negChance(S)*100)+' %</div><div class="meta">Chance auf 3 bis 8 % mehr. Sie steigt mit Fortbildungen, Dienstjahren und guter Erholung. Nach einem Erfolg erst nach einem Jahr wieder, nach einer Absage nach einem halben.'+(e?'<br>'+e:'')+'</div><div class="acts"><button class="btn pri" data-act="negot"'+(e?' disabled':'')+'>Verhandeln</button></div></div>';
   return h;
@@ -4695,7 +4705,7 @@ function selfRow(){
 function selfSec(){
   const jb=JBY[S.job.id],m=selfMon(S),y1=v=>(Math.floor(v*10)/10).toString().replace('.',','),last=S.led.last&&S.led.last['Selbstständigkeit']!=null?S.led.last['Selbstständigkeit']+(S.led.last['Geschäftsführergehalt']||0):null,op=fiOwnPay(S);
   const own=fiLead(S);
-  return '<section><h2>'+(own?'Inhaber und Geschäftsführer':'Selbstständig')+'</h2><div class="pad"><div class="kv">'+(own?'<span>Firma</span><span>'+(S.firm.name||'Meine Firma')+'</span><span>Rolle</span><span>Du führst selbst</span>':'')+'<span>Bereich</span><span>'+jb.f+'</span>'+(own?'':'<span>Selbstständig seit</span><span>'+(m<12?Math.floor(m)+' Monaten':y1(m/12)+' Jahren')+'</span>')+''+(own?'<span>Geschäftsführergehalt</span><span class="pos">'+eur(op)+' im Monat</span><span>Mitarbeit für Kunden</span><span class="pos">'+eur(gehaltNow(S)-op)+' im Monat</span>':'')+'<span>'+(own?'Zusammen':'Verdienst im Schnitt')+'</span><span class="pos">'+eur(gehaltNow(S))+' im Monat</span>'+(last!=null?'<span>Letzter Monat</span><span class="'+cls(last-gehaltNow(S))+'">'+eur(last)+'</span>':'')+'<span>Maßstab</span><span>'+freeBest(S).n+'</span><span>Berufserfahrung</span><span>'+y1(S.exp/12)+' Jahre</span></div>'+
+  return '<section><h2>'+(own?'Inhaber und Geschäftsführer':'Selbstständig')+'</h2><div class="pad"><div class="kv">'+(own?'<span>Firma</span><span>'+(S.firm.name||'Meine Firma')+'</span><span>Rolle</span><span>Du führst selbst</span>':'')+'<span>Bereich</span><span>'+jb.f+'</span>'+(own?'':'<span>Selbstständig seit</span><span>'+(m<12?Math.floor(m)+' Monaten':y1(m/12)+' Jahren')+'</span>')+''+(own?'<span>Geschäftsführergehalt</span><span class="pos">'+eur(op)+' im Monat</span><span>Mitarbeit für Kunden</span><span class="pos">'+eur(gehaltNow(S)-op)+' im Monat</span>':'')+'<span>'+(own?'Zusammen':'Verdienst im Schnitt')+'</span><span class="'+(payWhy()?'neg':'pos')+'">'+eur(gehaltNow(S))+' im Monat'+(payWhy()?'<br><small>'+payWhy()+'</small>':'')+'</span>'+(last!=null?'<span>Letzter Monat</span><span class="'+cls(last-gehaltNow(S))+'">'+eur(last)+'</span>':'')+'<span>Maßstab</span><span>'+freeBest(S).n+'</span><span>Berufserfahrung</span><span>'+y1(S.exp/12)+' Jahre</span></div>'+
    (m<6?'<p class="note">Anlaufphase: Du hast noch nicht alle Kunden. Noch etwa '+Math.ceil(6-m)+' Monate, dann voller Verdienst.</p>':'')+
    (own?'<p class="note">Die Firma zahlt dir ein Geschäftsführergehalt: Grundgehalt plus 8&nbsp;% vom Umsatz (bei großem Umsatz weniger), so viel wie ein fremder Geschäftsführer bekäme. Neben der Führung arbeitest du selbst für Kunden mit. Je mehr Mitarbeiter, desto weniger Zeit bleibt dafür (bei '+S.firm.emp+' Mitarbeitern '+Math.round((1-fiOwnF(S))*100)+'&nbsp;% weniger). Der Firmengewinn (nach deinem Gehalt) kommt zusätzlich auf dein Konto.</p>':'')+
    '<p class="note">Dein Verdienst richtet sich nach der besten Stelle in deinem Bereich, für die du alles mitbringst, und nach deiner Erfahrung. Neue Abschlüsse heben ihn sofort. Jeden Monat schwankt er: mal schwache, mal sehr gute Monate. Versicherungen und Rentenpunkte laufen weiter, Weihnachtsgeld gibt es nicht.</p>'+
@@ -4752,7 +4762,7 @@ function bindLine(){const d=bindDue(S);if(d<0.5)return '';const end=Math.max(0,.
 function vJob(){
   if(S.retired)return '<section><h2>Beruf</h2><p class="note pad" style="margin-top:0">Du bist in Rente. Stellen und Fortbildungen gibt es nicht mehr. Deine Rente und dein Vermögen tragen dich jetzt.</p></section>';
   const jb=JBY[S.job.id],yrs=(S.day-S.job.since)/360,yt=(S.day-jobT0(S))/360,y1=v=>(Math.floor(v*10)/10).toString().replace('.',',');
-  let h=S.self?selfSec():'<section><h2>Mein Job</h2><div class="pad"><div class="kv"><span>Stelle</span><span>'+jb.n+(S.unemp?' (gekündigt)':'')+'</span><span>Bereich</span><span>'+jb.f+'</span>'+(S.unemp?'':'<span>Arbeitgeber</span><span>'+EMPS[empOf(S)].n+'</span>'+bindLine())+'<span>Auf dieser Stelle</span><span>'+y1(yrs)+' Jahre</span>'+(!S.unemp&&yt-yrs>0.05?'<span>Im Betrieb seit</span><span>'+y1(yt)+' Jahren</span>':'')+'<span>'+(S.unemp?'Arbeitslosengeld':'Gehalt netto')+'</span><span class="pos">'+eur(gehaltNow(S))+' im Monat</span><span>Weihnachtsgeld</span><span>'+Math.round((S.unemp?wgJob(jb):wgNow(S))*100)+' % im Dezember</span><span>Berufserfahrung</span><span>'+(Math.floor(S.exp/12*10)/10).toString().replace('.',',')+' Jahre</span><span>Status</span><span>+'+jb.s+'</span></div>'+
+  let h=S.self?selfSec():'<section><h2>Mein Job</h2><div class="pad"><div class="kv"><span>Stelle</span><span>'+jb.n+(S.unemp?' (gekündigt)':'')+'</span><span>Bereich</span><span>'+jb.f+'</span>'+(S.unemp?'':'<span>Arbeitgeber</span><span>'+EMPS[empOf(S)].n+'</span>'+bindLine())+'<span>Auf dieser Stelle</span><span>'+y1(yrs)+' Jahre</span>'+(!S.unemp&&yt-yrs>0.05?'<span>Im Betrieb seit</span><span>'+y1(yt)+' Jahren</span>':'')+'<span>'+(S.unemp?'Arbeitslosengeld':'Gehalt netto')+'</span><span class="'+(payWhy()?'neg':'pos')+'">'+eur(gehaltNow(S))+' im Monat'+(payWhy()?'<br><small>'+payWhy()+'</small>':'')+'</span><span>Weihnachtsgeld</span><span>'+Math.round((S.unemp?wgJob(jb):wgNow(S))*100)+' % im Dezember</span><span>Berufserfahrung</span><span>'+(Math.floor(S.exp/12*10)/10).toString().replace('.',',')+' Jahre</span><span>Status</span><span>+'+jb.s+'</span></div>'+
    '<p class="note">Pro Jahr im Betrieb steigt dein Gehalt um 3 %, bis zu 35 %. Im Dezember gibt es Weihnachtsgeld, bei guter Erholung auch mal einen Bonus. Ein Wechsel zu einem neuen Arbeitgeber setzt das zurück, ein interner Wechsel nicht. Erschöpfung (unter 30 Erholung) kostet Gehalt und kann dich krank machen.</p>'+(jb.edu&&!S.unemp?'':(S.unemp?'':'<div class="acts" style="padding:0 0 8px"><button class="btn" data-act="apply" data-id="'+S.job.id+'">Gleiche Stelle woanders</button></div>')+jobExtra()+selfRow()+(S.firm?'':foundRow())+agRow())+'</div></section>';
   if(S.study&&S.study.edu&&JBY[S.study.to]){const st=S.study,to=JBY[st.to],w=S.job.id==='azubi'?'Ausbildung':'Studium',rest=eduRest(S),ch=[st.id].concat(st.chain||[]);
     h+='<section><h2>'+(w==='Ausbildung'?'Meine ':'Mein ')+w+'</h2><div class="pad"><div class="kv"><span>Ziel</span><span>'+to.n+'</span><span>Gerade</span><span>'+QBY[st.id].name+', noch '+st.left+' Mon.</span>'+(ch.length>1?'<span>Danach</span><span>'+ch.slice(1).map(q=>QBY[q].name).join(', ')+'</span>':'')+'<span>Fertig in</span><span>'+(rest>=12?(Math.floor(rest/12*10)/10).toString().replace('.',',')+' Jahren':rest+' Monaten')+'</span><span>Danach netto ca.</span><span>'+eur(to.net*lv(S).gehalt/3200)+' im Monat</span></div>'+
@@ -4862,10 +4872,18 @@ function taskRows(){const T=S.task;if(!T)return '<p class="note">Die neuen Aufga
     const det=t.flag?(S.task.minus?'<span class="neg">Konto war im Minus, nicht mehr zu schaffen</span>':'bisher nie im Minus'):'jetzt '+taskVal(e,t.cur(S))+', Ziel '+(t.down?'höchstens ':'')+taskVal(e,e.g);
     return '<div class="ach'+(d?' on':'')+'"><span class="ai">'+(d?'✓':'○')+'</span><b>'+t.n+'</b><span class="ad">'+det+' · Belohnung '+eur(e.r)+'</span><div style="height:6px;border-radius:3px;background:rgba(127,127,127,.18);margin-top:6px;overflow:hidden"><div style="height:100%;width:'+Math.round(pg*100)+'%;background:var(--pos,#16a34a)"></div></div></div>';}).join('');}
 function recFmt(r,v){return r[2]==='eur'?eur(v):r[2]==='yrs'?String(v).replace('.',',')+' Jahren':r[2]==='ma'?Math.round(v)+' Mitarbeiter':String(Math.round(v));}
+let taskLbl=null;
+/* V123: Jahresaufgaben einklappbar (S.ui.c.task, S.ui.c.taskmini) und abschaltbar (S.ui.c.taskoff, nur Anzeige) */
+const taskOn=()=>!(S&&S.ui&&S.ui.c.taskoff);
+function taskSet(on){if(on)delete S.ui.c.taskoff;else S.ui.c.taskoff=1;dirty=true;saveLocal();renderView();if(typeof taskLbl==='function')taskLbl();toast(on?'Die Jahresaufgaben werden wieder angezeigt.':'Die Jahresaufgaben sind ausgeblendet. Einschalten im Reiter Erfolge oder unter „Spielstand & Einstellungen“.');}
 function taskBox(){const T=S.task,L=S.taskLast;
-  let h='<section class="nofold"><h2>Jahresaufgaben'+(T?' '+T.y:'')+'</h2><div class="pad"><p class="note" style="margin:0 0 10px">Jedes Jahr drei Aufgaben. Was du bis zum Jahresende schaffst, wird mit Geld belohnt.</p><div class="achl">'+taskRows()+'</div>';
+  if(!taskOn())return '<section class="nofold"><div class="pad" style="padding-top:12px"><p class="note" style="margin:0 0 8px">Die Jahresaufgaben sind ausgeblendet. Belohnungen gibt es im Hintergrund trotzdem.</p><button class="btn" data-act="taskon">Jahresaufgaben wieder anzeigen</button></div></section>';
+  const n=T?T.list.filter(e=>taskDone(S,e)).length:0;
+  let h='<section>'+secHead('task','Jahresaufgaben'+(T?' '+T.y:''),T?n+' von '+T.list.length+' erfüllt':'');
+  if(S.ui.c.task)return h+'</section>';
+  h+='<div class="pad"><p class="note" style="margin:0 0 10px">Jedes Jahr drei Aufgaben. Was du bis zum Jahresende schaffst, wird mit Geld belohnt.</p><div class="achl">'+taskRows()+'</div>';
   if(L)h+='<p class="note" style="margin:10px 0 0">'+L.y+': '+L.list.filter(e=>e.ok).length+' von '+L.list.length+' geschafft.'+(S.taskN?' Insgesamt '+S.taskN.ok+' von '+S.taskN.all+'.':'')+'</p>';
-  return h+'</div></section>';}
+  return h+'<div class="acts" style="margin-top:10px"><button class="btn" data-act="taskoff">Nicht mehr anzeigen</button></div></div></section>';}
 function recSec(){const R=S.rec||{},RR=S.rrec||{};const rows=REC.filter(r=>R[r[0]]);
   let h='<section class="nofold"><h2>Bestwerte</h2><div class="pad">';
   if(!rows.length)return h+'<p class="note" style="margin:0">Noch keine. Bestwerte entstehen beim Spielen und bleiben auch nach dem Ruhestand erhalten.</p></div></section>';
@@ -4873,8 +4891,10 @@ function recSec(){const R=S.rec||{},RR=S.rrec||{};const rows=REC.filter(r=>R[r[0
   rows.forEach(r=>{const a=R[r[0]],b=RR[r[0]],same=b&&a.r===b.r&&a.v===b.v;
     h+='<span>'+r[1]+'</span><span><b>'+recFmt(r,a.v)+'</b>'+(same&&a.r===(S.resets||0)+1?' <span class="pos">(in diesem Lauf)</span>':' (Lauf '+a.r+', '+dateOf(a.d).y+')')+(b&&!same?'<br><span class="dn">dieser Lauf: '+recFmt(r,b.v)+'</span>':'')+'</span>';});
   return h+'</div></div></section>';}
-function taskMini(){const T=S.task;if(!T)return '';const n=T.list.filter(e=>taskDone(S,e)).length;
-  return '<section class="nofold fpmini"><div class="fpnext"><small>Jahresaufgaben '+T.y+' · '+n+' von '+T.list.length+' erfüllt</small><b>'+T.list.map(e=>(taskDone(S,e)?'✓ ':'○ ')+(TASKBY[e.id]?TASKBY[e.id].n:'')).join('<br>')+'</b><div class="acts" style="margin-top:4px"><button class="btn" data-act="gotab" data-id="erf">Details und Bestwerte</button></div></div></section>';}
+function taskMini(){const T=S.task;if(!T||!taskOn())return '';const n=T.list.filter(e=>taskDone(S,e)).length,c=S.ui.c.taskmini;
+  const hd='<small data-act="fold" data-id="sec:taskmini" role="button" aria-expanded="'+(!c)+'" style="cursor:pointer;display:flex;justify-content:space-between;gap:8px"><span style="font:inherit;color:inherit">Jahresaufgaben '+T.y+' · '+n+' von '+T.list.length+' erfüllt</span><span style="font:inherit;color:inherit">'+(c?'▸':'▾')+'</span></small>';
+  if(c)return '<section class="nofold fpmini"><div class="fpnext">'+hd+'</div></section>';
+  return '<section class="nofold fpmini"><div class="fpnext">'+hd+'<b>'+T.list.map(e=>(taskDone(S,e)?'✓ ':'○ ')+(TASKBY[e.id]?TASKBY[e.id].n:'')).join('<br>')+'</b><div class="acts" style="margin-top:4px"><button class="btn" data-act="gotab" data-id="erf">Details und Bestwerte</button><button class="btn" data-act="taskoff">Ausblenden</button></div></div></section>';}
 function vAch(){
   const nA=Object.keys(S.ach).length;
   const f=S.ui.sub.erf||'alle',L=ACH.filter(a=>f==='alle'||(f==='on')===!!S.ach[a[0]]);
@@ -5136,6 +5156,7 @@ function act(a,id){
   if(a==='pfold'){const u=+id;if(S.pfold[u])delete S.pfold[u];else S.pfold[u]=1;return commit();}
   if(a==='pfoldall'){S.pfold={};if(id==='close')S.props.forEach(x=>{S.pfold[x.uid]=1;});return commit();}
   if(a==='foldall'){const gm=groupModels(MODELS.filter(m=>m.cat===sel.cat&&m.brand===sel.brand&&invAvail(S,m)),sel.brand);gm.ord.forEach(k=>{S.ui.o['s'+sel.cat+sel.brand+k]=(id==='open');});return renderView();}
+  if(a==='taskoff'||a==='taskon')return taskSet(a==='taskon');
   if(a==='fold'){const i=id.indexOf(':'),k=id.slice(i+1),m=id.slice(0,i)==='sec'?S.ui.c:S.ui.o;if(m[k])delete m[k];else m[k]=1;dirty=true;saveLocal();return renderView();}
   if(a==='subtab'){S.ui.sub[tab]=id;dirty=true;saveLocal();renderView();const c=document.querySelector('.subtabs');if(c&&c.getBoundingClientRect().top<0)c.scrollIntoView({block:'start'});return;}
   if(a==='more'){if(noteOpen.has(id))noteOpen.delete(id);else noteOpen.add(id);return renderView();}
@@ -5928,7 +5949,9 @@ function start(data){
   $('poptog').addEventListener('click',()=>{if(!S)return;S.pop=S.pop===false;popLbl();dirty=true;saveLocal();toast(S.pop?'Pop-ups sind an. Das Spiel hält bei Entscheidungen und zum Jahresende an.':'Pop-ups sind aus.');});
   const fpLbl=()=>{$('fptog').textContent='Reiter Fahrplan: '+(fpOn()?'an':'aus');};
   $('fptog').addEventListener('click',()=>{if(!S)return;S.ui.fp=!fpOn();fpLbl();dirty=true;saveLocal();renderView();toast(S.ui.fp?'Der Reiter Fahrplan ist eingeblendet.':'Der Reiter Fahrplan ist ausgeblendet.');});
-  document.querySelector('details').addEventListener('toggle',()=>{popLbl();fpLbl();});popLbl();fpLbl();
+  taskLbl=()=>{$('tasktog').textContent='Jahresaufgaben anzeigen: '+(S&&!taskOn()?'aus':'an');};
+  $('tasktog').addEventListener('click',()=>{if(!S)return;taskSet(!taskOn());});
+  document.querySelector('details').addEventListener('toggle',()=>{popLbl();fpLbl();taskLbl();});popLbl();fpLbl();taskLbl();
   $('export').addEventListener('click',()=>{$('box').value=exportText();$('box').focus();$('box').select();});
   $('import').addEventListener('click',()=>{if($('box').value.trim())importText($('box').value);else toast('Füge zuerst den Text ein.');});
   $('newgame').addEventListener('click',()=>dlg('Neues Spiel?','<p class="dn">Der aktuelle Spielstand und deine Erfolge gehen verloren. Deine Ruhestandspunkte bleiben.</p>',[{t:'Abbrechen'},{t:'Neues Spiel',pri:true,f:()=>{freshAch=true;showStart();}}]));
