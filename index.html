@@ -309,7 +309,7 @@ button.chip:hover{background:var(--accent-soft);color:var(--accent)}
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f3f5f9" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0b1020" media="(prefers-color-scheme: dark)">
-<script>window.__web="117";</script>
+<script>window.__web="119";</script>
 </head>
 <body>
 <div class="wrap">
@@ -785,6 +785,11 @@ for(const k in XT)Object.assign(REG[k].t,XT[k]);
 // V116: Baugrundstücke in Großstädten (Bodenrichtwerte für Geschosswohnungsbau, grob). Nur hier gehen Hochhaus, Bürogebäude und Einkaufszentrum.
 const CITY_GRUND={A:4000,berlin:2800,muc:6000,ffm:3800,koeln:2000,dues:2400,stutt:2600},CITY=Object.keys(CITY_GRUND);
 for(const k of CITY)REG[k].t.grund=[CITY_GRUND[k],0];
+// V119: Baugrundstücke und Wald in mehr Gegenden (Bodenpreis €/m², Waldpreis €/m²)
+const MORE_GRUND={hann:380,nue:650,ruhr:330,kiel:300,schwarz:750,bodensee:1100,bayalpen:1300,nordsee:300};
+const MORE_WALD={B:1.2,ost:0.9,bayalpen:2.2,nue:1.3,hann:1.1,rugen:1.0,warne:0.9,kiel:1.0,bodensee:2.0,brem:0.9};
+for(const k in MORE_GRUND)if(REG[k]&&!REG[k].t.grund)REG[k].t.grund=[MORE_GRUND[k],0];
+for(const k in MORE_WALD)if(REG[k]&&!REG[k].t.wald)REG[k].t.wald=[MORE_WALD[k],0];
 
 function gauss(rnd){let u=0;while(u<1e-12)u=rnd();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*rnd());}
 function pick(a,rnd){return a[Math.floor(rnd()*a.length)];}
@@ -2387,8 +2392,9 @@ function pendingPrestige(S){return S.peak>=250000?Math.max(0,Math.floor(Math.sqr
 /* ---------- Immobilienangebote ---------- */
 function genListing(S,rnd,reg){
   const R=REG[reg],types=Object.keys(R.t);
-  let tot=0;types.forEach(k=>{tot+=PT[k].fix?0.5:1;});let r=rnd()*tot,type=types[0];
-  for(const k of types){const w=PT[k].fix?0.5:1;if(r<w){type=k;break;}r-=w;}
+  const LW=k=>PT[k].fix?0.5:(k==='grund'||k==='wald'?1.6:1);// V119: Bau- und Waldgrundstücke etwas häufiger
+  let tot=0;types.forEach(k=>{tot+=LW(k);});let r=rnd()*tot,type=types[0];
+  for(const k of types){const w=LW(k);if(r<w){type=k;break;}r-=w;}
   const T=PT[type],q=0.92+rnd()*0.16;
   const m2=T.m2?Math.round((T.m2[0]+Math.pow(rnd(),T.m2p||1)*(T.m2[1]-T.m2[0]))/(T.m2r||1))*(T.m2r||1):0;
   const x={uid:S.uid++,type,lage:reg,m2,q,city:pick(R.cities,rnd),infAt:S.inf,reiAt:S.rei[reg],tag:pick(TAGS[type]||[''],rnd)};
@@ -2401,7 +2407,7 @@ function genListing(S,rnd,reg){
 }
 function fillOffers(S,rnd){
   for(const k in REG){
-    let n=S.offers.filter(o=>o.lage===k).length;const tgt=REG[k].group===REGROUPS[0]?7:(REG[k].group===REGROUPS[2]?6:4);
+    let n=S.offers.filter(o=>o.lage===k).length;const tgt=REG[k].group===REGROUPS[0]?12:(REG[k].group===REGROUPS[2]?10:7);// V119: mehr Angebot
     while(n<tgt){S.offers.push(genListing(S,rnd,k));n++;}
   }
 }
@@ -3812,7 +3818,7 @@ function pc(x,d){d=d==null?2:d;return x.toLocaleString('de-DE',{minimumFractionD
 
 const KEY='vermoegensfabrik-v2';
 // Versionsnummer, bei jeder Veröffentlichung hochzählen (bauen-web.sh liest sie hier)
-const VF_VERSION='117';
+const VF_VERSION='119';
 const $=id=>document.getElementById(id);
 const TAB_ICONS={
   uebers:'M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z',
@@ -4213,8 +4219,8 @@ function waldInfo(x){
    '<br><span class="dn">Risiko: Stürme (vor allem im Winter) und Borkenkäfer (im Sommer, besonders im Nadelwald) zerstören Teile des Waldes.</span>';
 }
 let rsel={reg:'A',type:'all',sort:'pa',bsort:'neu'};
-const TCATS=[['park','Stellplätze & Garagen',['stell','garage']],['wohn','Wohnungen',['whg','mikro','penthouse']],['haeuser','Häuser & Villen',['haus','reihenhaus','dhh','bungalow','villa','landhaus']],['mehr','Mehrfamilien- & Geschäftshäuser',['mfh','wgh','hoch']],['ferien','Ferienobjekte',['ferienwhg','ferienhaus','chalet','finca','pension']],['gewerbe','Gewerbe',['laden','buero','halle','markt','ekz']],['land','Grundstücke & Wald',['grund','wald']]];
-function typeMatch(sel,t){if(sel==='all')return true;if(sel.startsWith('g:')){const c=TCATS.find(x=>x[0]===sel.slice(2));return !!c&&c[2].includes(t);}return sel===t;}
+const TCATS=[['park','Stellplätze & Garagen',['stell','garage']],['wohn','Wohnungen',['whg','mikro','penthouse']],['haeuser','Häuser & Villen',['haus','reihenhaus','dhh','bungalow','villa','landhaus']],['mehr','Mehrfamilien- & Geschäftshäuser',['mfh','wgh','hoch']],['ferien','Ferienobjekte',['ferienwhg','ferienhaus','chalet','finca','pension']],['gewerbe','Gewerbe',['laden','buero','halle','markt','ekz']],['grund','Baugrundstücke',['grund']],['wald','Waldgrundstücke',['wald']]];
+function typeMatch(sel,t){if(sel==='all')return true;if(sel.startsWith('g:')){const c=TCATS.find(x=>x[0]===sel.slice(2));return !c||c[2].includes(t);}return sel===t;}
 function yieldLine(x,val){
   const inc=x.inc||0,ex=x.exp||0,yrs=(S.day-x.day)/360,tot=val-x.basis+inc-ex;
   return (x.own?'':'<br>'+(PT[x.type].forst?'Einnahmen (Holz, Jagd, Förderung)':x.type==='grund'?'Pachteinnahmen':'Mieteinnahmen')+' bisher '+eur(inc)+(yrs>=0.25?' (Ø '+eur(inc/yrs)+' im Jahr)':''))+'<br>Kosten bisher '+eur(ex)+' (Instandhaltung, Zinsen, Reparaturen'+(x.own?'':', Steuern')+')'+
@@ -5323,15 +5329,15 @@ function openBau(uid){
    '<label class="dl" for="bt">Bauart</label><select id="bt" class="inp">'+opts.map(b=>'<option value="'+b.id+'"'+(x.m2<b.plot?' disabled':'')+'>'+b.name+', '+b.m2+' m²'+(x.m2<b.plot?' (ab '+b.plot+' m² Grundstück)':'')+'</option>').join('')+'</select>'+
    '<label class="dl" for="bp">Ausstattung</label><select id="bp" class="inp">'+Object.keys(PAK).map(k=>'<option value="'+k+'"'+(k==='std'?' selected':'')+'>'+PAK[k].n+'</option>').join('')+'</select><p class="note" id="bpd"></p>'+
    '<div class="dl">Extras</div><div class="exl" id="bex"></div>'+
-   '<label class="dl" for="bl">Finanzierung: <b id="blv"></b></label><input id="bl" type="range" min="0" max="'+maxLs+'" step="5" value="'+Math.min(60,maxLs)+'">'+
+   '<label class="dl" for="bl">Eigenkapital: <b id="blv"></b></label><input id="bl" type="range" min="'+(100-maxLs)+'" max="100" step="5" value="'+Math.max(40,100-maxLs)+'"><p class="note" style="margin:2px 0 0">Nach rechts mehr eigenes Geld, ganz rechts ohne Kredit.</p>'+
    '<div class="kv" id="binfo"></div><p class="derr" id="derr"></p>';
   const cur=()=>BBY[$('bt').value]||opts[0],aus=()=>({p:$('bp').value,ex:[...document.querySelectorAll('#bex input:checked')].map(i=>i.value)});
   const exList=()=>{const b=cur(),on=aus().ex,c0=bauCalc(S,x,b,0,{p:'std',ex:[]});
     $('bex').innerHTML=EXTRAS.filter(e=>exOk(b,e)).map(e=>{const c=exCost(S,b,e,c0.base),r=exRent(b,e);return '<label class="chk"><input type="checkbox" value="'+e.id+'"'+(on.includes(e.id)?' checked':'')+'> <span><b>'+e.n+'</b> · '+eur(c)+(e.drp?'':' · +'+eur(r)+' Miete')+'<br><span class="note">'+(e.per&&b.we?Math.max(1,Math.round(b.we*e.per))+' Stück. ':(e.d?e.d+'. ':''))+'Wert steigt um ca. '+Math.round(e.dv*100)+' % der Kosten'+(e.s?', Status +'+e.s:'')+'</span></span></label>';}).join('');
     document.querySelectorAll('#bex input').forEach(i=>i.addEventListener('change',upd));};
   const upd=()=>{
-    const b=cur(),A=aus(),ls=Number($('bl').value)/100,c=bauCalc(S,x,b,ls,A),pk=PAK[c.A.p];$('bpd').textContent=pk.d;
-    $('blv').textContent=Math.round(ls*100)+' % Kredit ('+eur(c.total*ls)+'), '+Math.round((1-ls)*100)+' % Eigenkapital ('+eur(c.total*(1-ls))+')';
+    const b=cur(),A=aus(),ls=1-Number($('bl').value)/100,c=bauCalc(S,x,b,ls,A),pk=PAK[c.A.p];$('bpd').textContent=pk.d;
+    $('blv').textContent=Math.round((1-ls)*100)+' % ('+eur(c.total*(1-ls))+')'+(ls>0?', Kredit '+Math.round(ls*100)+' % ('+eur(c.total*ls)+')':', ohne Kredit');
     const rem=x.m2-b.plot,st=pk.s+c.A.ex.reduce((t,id)=>t+EXBY[id].s,0);
     $('binfo').innerHTML='<span>Rohbau und Ausbau ('+pk.n+')</span><span>'+eur(c.core)+'</span>'+(c.ec?'<span>Extras</span><span>'+eur(c.ec)+'</span>':'')+'<span><b>Baukosten heute</b></span><span><b>'+eur(c.total)+'</b></span><span><b>Dein Eigenkapital</b></span><span><b>'+eur(c.total*(1-ls))+'</b>, verteilt auf die Bauzeit</span><span>Bauzeit</span><span>ca. '+b.n+' Monate</span><span>Rate vom Konto</span><span>'+eur(c.inst*(1-ls))+' im Monat</span>'+
      (ls>0?'<span>Baukredit</span><span>'+eur(c.total*ls)+' zu '+pc(c.rate)+(c.kfw>0?'<br>davon '+eur(c.kfw)+' KfW-Förderkredit zu '+pc(c.kr)+', Rest Bank zu '+pc(c.bank):'')+'</span><span>Rate nach Bauende</span><span>'+eur(c.pay)+' im Monat</span>':'')+
@@ -5340,7 +5346,7 @@ function openBau(uid){
      (st?'<span>Status</span><span>+'+st+' zusätzlich</span>':'')+
      (rem>=400?'<span>Restgrundstück</span><span>'+rem+' m² bleiben als eigenes Grundstück</span>':'')+'<span>Verfügbar</span><span>'+eur(S.cash)+'</span>';
   };
-  dlg('Bebauen',body,[{t:'Abbrechen'},{t:'Bauen',pri:true,f:()=>{const e=bauStart(S,uid,cur().id,Number($('bl').value)/100,aus());if(e){derr(e);return false;}dirty=true;saveLocal();toast('Der Bau beginnt.');}}],()=>{$('bt').addEventListener('change',()=>{exList();upd();});$('bp').addEventListener('change',upd);$('bl').addEventListener('input',upd);
+  dlg('Bebauen',body,[{t:'Abbrechen'},{t:'Bauen',pri:true,f:()=>{const e=bauStart(S,uid,cur().id,1-Number($('bl').value)/100,aus());if(e){derr(e);return false;}dirty=true;saveLocal();toast('Der Bau beginnt.');}}],()=>{$('bt').addEventListener('change',()=>{exList();upd();});$('bp').addEventListener('change',upd);$('bl').addEventListener('input',upd);
     const f=[...$('bt').options].find(o=>!o.disabled);if(f)$('bt').value=f.value;exList();upd();});
 }
 function openPropBuy(uid){
