@@ -309,7 +309,7 @@ button.chip:hover{background:var(--accent-soft);color:var(--accent)}
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f3f5f9" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0b1020" media="(prefers-color-scheme: dark)">
-<script>window.__web="129";</script>
+<script>window.__web="130";</script>
 </head>
 <body>
 <div class="wrap">
@@ -2150,8 +2150,13 @@ function fiSell(S){const F=S.firm;if(!F)return 'Du hast keine Firma.';if(F.ipo)r
 const FI_MORE=4,FI_TEAM2=[5,10,25];
 const FI_BR=[{id:'it',n:'IT-Dienstleister',lf:1.3},{id:'ber',n:'Unternehmensberatung',lf:1.4},{id:'ing',n:'Ingenieurbüro',lf:1.3},{id:'agen',n:'Werbeagentur',lf:1.05},
  {id:'hand',n:'Handwerksbetrieb',lf:0.95},{id:'bau',n:'Bauunternehmen',lf:1.0},{id:'log',n:'Spedition',lf:0.9},{id:'rein',n:'Gebäudereinigung',lf:0.7}];
-function fiAt(S,F,fn){const o=S.firm,w=S._fiSw;S.firm=F;S._fiSw=1;let r,n;try{r=fn();}finally{n=S.firm;S.firm=o;if(w)S._fiSw=w;else delete S._fiSw;
+function fiAt(S,F,fn){const o=S.firm,w=S._fiSw,m=S._fiMain;S.firm=F;S._fiSw=1;if(!w)S._fiMain=o;let r,n;try{r=fn();}finally{n=S.firm;S.firm=o;if(w){S._fiSw=w;S._fiMain=m;}else{delete S._fiSw;delete S._fiMain;}
   if(n!==F){const i=S.firms.indexOf(F);if(i>=0){if(n)S.firms[i]=n;else S.firms.splice(i,1);}}}return r;}
+// V130: Firma umbenennen. Nur Buchstaben, Leerzeichen, Punkt und Bindestrich (der Name steht als Überschrift und Reiter; Ziffern würden Reiter verwechseln).
+function fiNameOk(S,name){const n=String(name==null?'':name).replace(/\s+/g,' ').trim();if(n.length<2)return 'Der Name ist zu kurz.';if(n.length>28)return 'Höchstens 28 Zeichen.';
+  if(!/^[\p{L} .\-]+$/u.test(n))return 'Nur Buchstaben, Leerzeichen, Punkt und Bindestrich.';const F=S.firm,k=n.toLowerCase();
+  if([S._fiMain].concat(S.firms||[],S._fiSw?[]:[S.firm]).some(G=>G&&G!==F&&(G.name||'Meine Firma').toLowerCase()===k))return 'So heißt schon eine andere Firma.';return null;}
+function fiRename(S,name){const F=S.firm;if(!F)return 'Du hast keine Firma.';const e=fiNameOk(S,name);if(e)return e;F.name=String(name).replace(/\s+/g,' ').trim();return null;}
 function fiSum(S,fn){return (S.firms||[]).slice().reduce((a,F)=>a+(fiAt(S,F,fn)||0),0);}
 function fiAllN(S){return (S.firm?1:0)+(S.firms||[]).length;}
 function fiFound2Ok(S){if(S.retired)return 'Du bist in Rente.';if(!S.firm)return 'Gründe zuerst deine erste Firma (als Selbstständiger).';if((S.firms||[]).length>=FI_MORE)return 'Mehr als '+(FI_MORE+1)+' Firmen gehen nicht.';if(S.exp<SELF_EXP)return 'Dafür brauchst du '+SELF_EXP/12+' Jahre Berufserfahrung.';return null;}
@@ -2162,7 +2167,7 @@ function fiFound2(S,br,n){const e=fiFound2Ok(S);if(e)return e;if(!FI_BR.some(x=>
   S.firms=S.firms||[];S.fiNr=(S.fiNr||0)+1;const used=[S.firm].concat(S.firms).filter(Boolean).map(F=>F.name||''),nm=['',' II',' III',' IV',' V',' VI'].map(x=>c.b.n+x).find(x=>!used.includes(x))||c.b.n;
   const F=fiNew(S,{nr:S.fiNr,br:c.b.id,lf:c.b.lf,name:nm,gmbh:true,gf:true,cap:FI_CAP*S.inf,emp:n,hires:Array(n).fill(S.day)});
   S.firms.push(F);logMsg(S,'Weitere Firma gegründet: '+F.name+' (GmbH mit '+n+' Mitarbeitern). Ein Geschäftsführer leitet sie.');return null;}
-function fiNorm(S,f,day){const G=f&&isFinite(f.emp)?Object.assign(fiNew({day:day}),f,{hires:(Array.isArray(f.hires)?f.hires.filter(isFinite):[]).concat(Array(Math.max(0,(f.emp|0)-(Array.isArray(f.hires)?f.hires.filter(isFinite).length:0))).fill(0)).slice(0,f.emp|0),prof:Array.isArray(f.prof)?f.prof.filter(isFinite):[]}):null;if(!G)return null;return fiAt(S,G,()=>{if(!(f.mkt>0))G.mkt=fiMktGen(S,G);if(G.ipo){const F=G;if(!(F.tot>0))F.tot=akTot(S);if(!(F.own>0))F.own=Math.round((F.share>0?F.share:0.5)*F.tot);F.share=F.own/F.tot;if(!(F.kurs>0)){F.kurs=Math.max(0.01,fiFairK(S));F.kurs0=F.kurs;}if(!(F.kurs0>0))F.kurs0=F.kurs;if(!(F.k1>0))F.k1=F.kurs;if(!isFinite(F.ipoDay))F.ipoDay=(day||0)-AK_LOCK;if(!isFinite(F.mref))F.mref=null;}return S.firm;});}
+function fiNorm(S,f,day){const G=f&&isFinite(f.emp)?Object.assign(fiNew({day:day}),f,{hires:(Array.isArray(f.hires)?f.hires.filter(isFinite):[]).concat(Array(Math.max(0,(f.emp|0)-(Array.isArray(f.hires)?f.hires.filter(isFinite).length:0))).fill(0)).slice(0,f.emp|0),prof:Array.isArray(f.prof)?f.prof.filter(isFinite):[]}):null;if(!G)return null;if(G.name!=null)G.name=String(G.name).replace(/[<>&"']/g,'').slice(0,40)||undefined;return fiAt(S,G,()=>{if(!(f.mkt>0))G.mkt=fiMktGen(S,G);if(G.ipo){const F=G;if(!(F.tot>0))F.tot=akTot(S);if(!(F.own>0))F.own=Math.round((F.share>0?F.share:0.5)*F.tot);F.share=F.own/F.tot;if(!(F.kurs>0)){F.kurs=Math.max(0.01,fiFairK(S));F.kurs0=F.kurs;}if(!(F.kurs0>0))F.kurs0=F.kurs;if(!(F.k1>0))F.k1=F.kurs;if(!isFinite(F.ipoDay))F.ipoDay=(day||0)-AK_LOCK;if(!isFinite(F.mref))F.mref=null;}return S.firm;});}
 function fiMonth(S,money,rnd){
   const F=S.firm;if(!F)return;
   if(!F.gf&&(!S.self||S.retired)){F.gf=true;logMsg(S,'Niemand leitet die Firma: Ein Geschäftsführer übernimmt.');}
@@ -3957,7 +3962,7 @@ function pc(x,d){d=d==null?2:d;return x.toLocaleString('de-DE',{minimumFractionD
 
 const KEY='vermoegensfabrik-v2';
 // Versionsnummer, bei jeder Veröffentlichung hochzählen (bauen-web.sh liest sie hier)
-const VF_VERSION='129';
+const VF_VERSION='130';
 const $=id=>document.getElementById(id);
 const TAB_ICONS={
   uebers:'M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z',
@@ -4788,6 +4793,7 @@ function firmSec(){
   if(!F.ipo)h+='<div class="row"><div><span class="name">Geschäftsführer</span></div><div class="val">'+(F.gf?'eingesetzt':'du selbst')+'</div><div class="meta">'+(F.gf?'Er leitet die Firma für ca. '+eur(fiGfCost(S))+' im Monat (Grundgehalt plus 8&nbsp;% vom Umsatz, bei großem Umsatz weniger). Fehlen Aufträge, baut er nach und nach Stellen ab. Du kannst selbst voll arbeiten oder eine Stelle annehmen.':'Du führst selbst und bekommst dafür das Geschäftsführergehalt von ca. '+eur(fiGfCost(S))+' im Monat. Ein fremder Geschäftsführer kostet genauso viel. Dafür bist du frei: voller eigener Verdienst als Selbstständiger, oder zurück in eine Anstellung.'+(ge?'<br>'+ge:''))+'</div><div class="acts">'+(F.gf?(S._fiSw?'':'<button class="btn" data-act="figfoff"'+(S.self?'':' disabled')+'>Selbst leiten</button>'):'<button class="btn pri" data-act="figf"'+(ge?' disabled':'')+'>Einsetzen</button>')+'</div></div>';
   if(F.ipo)h+='<div class="row"><div><span class="name">Deine Aktien</span></div><div class="val pos">'+eur(fiValue(S))+'</div><div class="meta">Deine '+F.own.toLocaleString('de-DE')+' Aktien liegen im Depot auf der Seite Wertpapiere. Dort siehst du den Kurs und kannst Teile oder alle verkaufen'+(akLock(S)>0?' (Sperrfrist noch '+akLock(S)+' Tage)':'')+'.</div><div class="acts"><button class="btn" data-act="gowp">Zum Depot</button></div></div>';
   else h+='<div class="row"><div><span class="name">Firma verkaufen</span></div><div class="val pos">'+eur(fiSellPrice(S))+'</div><div class="meta">Firmenwert abzüglich 10 % für Berater und Notar, oder Verkauf an Investoren. Kredite bleiben bei dir.</div><div class="acts"><button class="btn" data-act="fisell">Verkaufen</button></div></div>';
+  h+='<div class="row"><div><span class="name">Name</span></div><div class="val">'+(F.name||'Meine Firma')+'</div><div class="acts"><button class="btn" data-act="firename">Umbenennen</button></div></div>';
   if(S._fiSw)h+='<p class="note">Eine weitere Firma leitet immer ein Geschäftsführer. Ihr Gewinn kommt jeden Monat auf dein Konto.</p>';
   else{const e2=fiFound2Ok(S);h+='<div class="row"><div><span class="name">Weitere Firma gründen</span></div><div class="val">'+fiAllN(S)+' von '+(FI_MORE+1)+'</div><div class="meta">Eine weitere GmbH in einer Branche deiner Wahl, mit 5, 10 oder 25 Mitarbeitern. Ein Geschäftsführer leitet sie, du bekommst den Gewinn. Sie steht dann als eigener Abschnitt daneben.'+(e2?'<br>'+e2:'')+'</div><div class="acts"><button class="btn pri" data-act="found2"'+(e2?' disabled':'')+'>Gründen</button></div></div>';}
   return h+'</div></section>';
@@ -5230,7 +5236,7 @@ function vPlan(){
 /* ---------- Aktionen ---------- */
 function commit(){if(S&&S._fiSw){fiPend=1;return;}dirty=true;saveLocal();updateHeader();renderView();}
 // V127: weitere Firmen. Knöpfe tragen data-fi (Nummer in S.firms); Aktion und Dialog laufen dann mit dieser Firma (fiAt).
-let fiK=-1,fiPend=0;const FIA=new Set(['fihire','fifire','fiup','fiipo','figmbh','fimod','figf','figfoff','akbuy','aksell','fisell']);
+let fiK=-1,fiPend=0;const FIA=new Set(['fihire','fifire','fiup','fiipo','figmbh','fimod','figf','figfoff','akbuy','aksell','fisell','firename']);
 function fiUi(fn,k){const F=k>=0&&S.firms?S.firms[k]:null;if(!F)return fn();fiK=k;fiPend=0;const r=fiAt(S,F,fn);if(fiPend){fiPend=0;commit();}return r;}
 function act(a,id,fi){
   if(FIA.has(a)&&fi!=null&&fi!==''&&!(S&&S._fiSw))return fiUi(()=>act(a,id),+fi);
@@ -5294,6 +5300,11 @@ function act(a,id,fi){
   if(a==='figmbh')return dlg('GmbH gründen','<p class="dn">Deine Firma wird eine GmbH. Kosten: '+eur(FI_GMBH*S.inf)+' für Notar und Handelsregister, dazu '+eur(FI_CAP*S.inf)+' Stammkapital.</p><p class="note">Das Stammkapital bleibt in der Firma und zählt zum Firmenwert. Danach bis '+FI_MAX+' Mitarbeiter, und du haftest nicht mehr mit deinem privaten Vermögen.</p>',[{t:'Abbrechen'},{t:'Gründen',pri:1,f:()=>{const e=fiGmbh(S);toast(e||'GmbH gegründet.');commit();}}]);
   if(a==='found')return openFound();
   if(a==='found2')return openFound2();
+  if(a==='firename'){const old=S.firm.name||'Meine Firma';return dlg('Firma umbenennen','<label class="dl" for="fnm">Neuer Name</label><input id="fnm" class="inp" type="text" maxlength="28" autocomplete="off" value="'+old+'"><p class="note">Nur Buchstaben, Leerzeichen, Punkt und Bindestrich, höchstens 28 Zeichen.</p><p class="derr" id="derr"></p>',
+    [{t:'Abbrechen'},{t:'Umbenennen',pri:1,f:()=>{const v=$('fnm').value,nk=secTitle({childNodes:[{textContent:v}]});
+      if([...document.querySelectorAll('#view>section>h2')].some(h=>secTitle(h).toLowerCase()===nk.toLowerCase()&&secTitle(h)!==secTitle({childNodes:[{textContent:old}]}))){derr('So heißt schon ein anderer Abschnitt.');return false;}
+      const e=fiRename(S,v);if(e){derr(e);return false;}const ok='job/'+secTitle({childNodes:[{textContent:old}]}),nw='job/'+secTitle({childNodes:[{textContent:S.firm.name}]});
+      if(S.ui.sub.job===ok)S.ui.sub.job=nw;if(S.ui.c[ok]){S.ui.c[nw]=1;delete S.ui.c[ok];}toast('Umbenannt.');commit();}}],()=>{const i=$('fnm');i.focus();i.select();});}
   if(a==='fimod')return dlg('Firma modernisieren','<p class="dn">Du investierst '+eur(S.firm.inv*S.inf)+' in neue Maschinen, Technik und Räume. Danach macht die Firma wieder vollen Umsatz (+15 %).</p>',[{t:'Abbrechen'},{t:'Modernisieren',pri:1,f:()=>{const e=fiModern(S);toast(e||'Firma modernisiert.');commit();}}]);
   if(a==='figf')return dlg('Geschäftsführer einsetzen','<p class="dn">Ein Geschäftsführer leitet deine Firma für ca. '+eur(fiGfCost(S))+' im Monat (Grundgehalt plus 8&nbsp;% vom Umsatz, bei großem Umsatz weniger).</p><p class="note">Du bist dann frei: Als Selbstständiger arbeitest du wieder voll für eigene Kunden, oder du nimmst eine Stelle an. Der Gewinn der Firma kommt weiter auf dein Konto.</p>',[{t:'Abbrechen'},{t:'Einsetzen',pri:1,f:()=>{const e=fiGf(S,true);toast(e||'Geschäftsführer eingesetzt.');commit();}}]);
   if(a==='figfoff')return dlg('Firma selbst leiten','<p class="dn">Der Geschäftsführer geht, du leitest die Firma wieder selbst. Dein eigener Verdienst sinkt dadurch wieder.</p>',[{t:'Abbrechen'},{t:'Selbst leiten',pri:1,f:()=>{const e=fiGf(S,false);toast(e||'Du leitest die Firma wieder.');commit();}}]);
