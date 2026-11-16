@@ -309,7 +309,7 @@ button.chip:hover{background:var(--accent-soft);color:var(--accent)}
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f3f5f9" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0b1020" media="(prefers-color-scheme: dark)">
-<script>window.__web="123";</script>
+<script>window.__web="124";</script>
 </head>
 <body>
 <div class="wrap">
@@ -1409,7 +1409,11 @@ function waldMonth(S,x,rnd,money,mi){
 }
 function holzStep(S,rnd){S.holz=Math.max(0.5,Math.min(1.6,(S.holz||1)*(1+(rnd()-0.5)*0.06)+(1-(S.holz||1))*0.03));}
 function bizCost(b,n){return b.cost*Math.pow(1.2,n);}
-function bizValue(b,n){return b.cost*0.5*(Math.pow(1.2,n)-1)/0.2;}
+/* V124: Ertragswert. Ein Betrieb ist BIZ_MULT Jahresgewinne (vor Steuern) wert, Gewinne, Preise und Werte wachsen mit der Inflation,
+   die Konjunktur wirkt halb auf den Wert. Direkt nach dem Kauf ca. 70 % des Preises (erste Filiale), danach steigt er mit Inflation und Ausbau. */
+const BIZ_MULT=6;
+function bizValOne(S,b){const kf=S.day<S.bizFx.until?S.bizFx.f:1;return bizProf(S,b)*12*BIZ_MULT*(0.5+0.5*kf);}
+function bizValue(S,b){const n=S.biz[b.id]||0;if(!n)return 0;const kf=S.day<S.bizFx.until?S.bizFx.f:1;return n*bizValOne(S,b)+bizLocs(S,b.id).length*BIZ_LOC_F*bizProf(S,b)*12*BIZ_MULT*(0.5+0.5*kf);}
 /* ---------- Betriebe ausbauen, finanzieren, Franchise, eigener Standort (V117) ----------
    Ausbau gilt für alle Filialen einer Art (S.bizUp[id][k]=1): kostet pc × Grundpreis je vorhandener Filiale, neue Filialen kosten
    danach entsprechend mehr; Gewinn +f. Franchise (S.bizFr[id]={n,since}): ab BIZ_FR_MIN eigenen Filialen eine Marke gründen,
@@ -1425,9 +1429,9 @@ function bizUps(S,b){const u=(S.bizUp||{})[b.id]||{};return BIZ_UP.filter(e=>u[e
 function bizUpOk(b,e){return !e.on||!!b.on;}
 function bizUpF(S,b){return bizUps(S,b).reduce((a,e)=>a+e.f,1);}
 function bizUpPc(S,b){return bizUps(S,b).reduce((a,e)=>a+e.pc,0);}
-function bizProf(S,b){return b.prof*bizUpF(S,b);}// je Filiale, vor Konjunktur, Manager und Steuer
-function bizPrice(S,b){return bizCost(b,S.biz[b.id]||0)*(1+bizUpPc(S,b));}
-function bizUpCost(S,b,e){return e.pc*b.cost*Math.max(1,S.biz[b.id]||0);}
+function bizProf(S,b){return b.prof*bizUpF(S,b)*(S.inf||1);}// je Filiale, vor Konjunktur, Manager und Steuer
+function bizPrice(S,b){return bizCost(b,S.biz[b.id]||0)*(1+bizUpPc(S,b))*(S.inf||1);}
+function bizUpCost(S,b,e){return e.pc*b.cost*Math.max(1,S.biz[b.id]||0)*(S.inf||1);}
 function bizUpBuy(S,id,k,ls){const b=bizOf(id),e=BIZ_UP.find(x=>x.id===k);if(!b||!e)return 'Unbekannt.';if(!(S.biz[id]>0))return 'Du besitzt noch keinen solchen Betrieb.';
   if(!bizUpOk(b,e))return 'Das passt nicht zu diesem Betrieb.';S.bizUp=S.bizUp||{};const u=S.bizUp[id]=S.bizUp[id]||{};if(u[k])return 'Schon gemacht.';
   const c=bizUpCost(S,b,e),r=bizPay(S,c,ls,b.name+' (Ausbau)',(S.biz[id]||0)*bizProf(S,b)*e.f);if(r)return r;u[k]=1;
@@ -1440,10 +1444,10 @@ function bizPay(S,c,ls,what,extra){// extra: 70 % des zusätzlichen Monatsgewinn
     S.loans.push({uid:S.uid++,bank:'Betriebskredit: '+what,bal:k,rate,pay,left:BIZ_KN,n:BIZ_KN,start:S.day});}
   S.cash-=own;addL(S,'Betriebe: Kauf und Ausbau',-own);return null;}
 function bizFrOk(S,b){return !!b.fr&&(S.biz[b.id]||0)>=BIZ_FR_MIN&&!(S.bizFr||{})[b.id];}
-function bizFrCost(b){return b.cost*1.5;}
+function bizFrCost(S,b){return b.cost*1.5*(S.inf||1);}
 function bizFrStart(S,id){const b=bizOf(id);if(!b)return 'Unbekannt.';if(!b.fr)return 'Für diesen Betrieb gibt es kein Franchise.';
   if((S.biz[id]||0)<BIZ_FR_MIN)return 'Du brauchst mindestens '+BIZ_FR_MIN+' eigene Filialen.';S.bizFr=S.bizFr||{};if(S.bizFr[id])return 'Die Marke gibt es schon.';
-  const c=bizFrCost(b);if(c>S.cash+1e-6)return 'Für Marke, Handbuch und Verträge ('+Math.round(c)+' €) reicht dein verfügbares Geld nicht.';
+  const c=bizFrCost(S,b);if(c>S.cash+1e-6)return 'Für Marke, Handbuch und Verträge ('+Math.round(c)+' €) reicht dein verfügbares Geld nicht.';
   S.cash-=c;addL(S,'Betriebe: Kauf und Ausbau',-c);S.bizFr[id]={n:0,since:S.day,all:0};
   logMsg(S,'Eigene Marke gegründet: '+b.name+'. Jetzt können sich Franchisenehmer melden.');return null;}
 function bizFrFee(S,b){return BIZ_FR_FEE*bizProf(S,b);}
@@ -2423,7 +2427,7 @@ function parts(S){
   for(const id in S.hold){const v=S.hold[id].units*S.prices[id].p;if(id==='gold')p.gold+=v;else p.sec+=v;}p.sec+=vgValue(S)+(S.firm&&S.firm.ipo?fiValue(S):0);
   S.sach.forEach(it=>{p.sach+=sachValue(S,it);});
   S.props.forEach(x=>{p.re+=propValue(x,S);if(x.loan)p.debt+=x.loan.bal;});p.debt+=S.lombard.bal;S.loans.forEach(l=>{p.debt+=l.bal;});
-  BIZ.forEach(b=>{p.biz+=bizValue(b,S.biz[b.id]||0)*(1+bizUpPc(S,b));});p.biz+=bizFrValue(S);p.biz+=(S.firm&&S.firm.ipo?0:fiValue(S))+suValue(S);
+  BIZ.forEach(b=>{p.biz+=bizValue(S,b);});p.biz+=bizFrValue(S);p.biz+=(S.firm&&S.firm.ipo?0:fiValue(S))+suValue(S);
   p.vor=S.vor.bav.bal+S.vor.priv.bal+S.vor.avd.bal;
   p.nw=p.gk+p.vor+p.cash+p.bank+p.sec+p.gold+p.sach+p.re+p.biz-p.debt;return p;
 }
@@ -2756,12 +2760,12 @@ function sachSell(S,uid){
 /* ---------- Betriebe ---------- */
 function bizBuy(S,id,ls){
   const b=BIZ.find(x=>x.id===id);if(!b)return 'Unbekannt.';const n=S.biz[id]||0,c=bizPrice(S,b);
-  if(!ls){if(c>S.cash+1e-6)return 'So viel verfügbares Geld hast du nicht.';S.cash-=c;S.biz[id]=n+1;return null;}
+  if(!ls){if(c>S.cash+1e-6)return 'So viel verfügbares Geld hast du nicht.';S.cash-=c;addL(S,'Betriebe: Kauf und Ausbau',-c);S.biz[id]=n+1;return null;}
   const r=bizPay(S,c,ls,b.name,bizProf(S,b));if(r)return r;S.biz[id]=n+1;return null;
 }
 function bizSell(S,id){
   const b=BIZ.find(x=>x.id===id),n=S.biz[id]||0;if(n<1)return 'Du besitzt keinen.';
-  S.cash+=bizCost(b,n-1)*0.5*(1+bizUpPc(S,b));S.biz[id]=n-1;const L=bizLocs(S,id);if(L.length>n-1)bizLocEnd(S,L[L.length-1].uid);return null;
+  const v=bizValOne(S,b);S.cash+=v;addL(S,'Betriebe: Verkauf',v);S.biz[id]=n-1;const L=bizLocs(S,id);if(L.length>n-1)bizLocEnd(S,L[L.length-1].uid);return null;
 }
 function bizFactor(S){return (S.day<S.bizFx.until?S.bizFx.f:1)*(1+0.03*rankOf(S));}
 
@@ -3915,7 +3919,7 @@ function pc(x,d){d=d==null?2:d;return x.toLocaleString('de-DE',{minimumFractionD
 
 const KEY='vermoegensfabrik-v2';
 // Versionsnummer, bei jeder Veröffentlichung hochzählen (bauen-web.sh liest sie hier)
-const VF_VERSION='123';
+const VF_VERSION='124';
 const $=id=>document.getElementById(id);
 const TAB_ICONS={
   uebers:'M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z',
@@ -4602,14 +4606,14 @@ function vRe(){
 function bizNet(S,b){return bizProf(S,b)*bizFactor(S)*(S.upg.manager?1.15:1)*(1-lv(S).bizTax);}
 function vBiz(){
   const kf=bizFactor(S)*(S.upg.manager?1.15:1)*(1-lv(S).bizTax);let nAll=0,mon=0,fr=0,val=0;
-  BIZ.forEach(b=>{const n=S.biz[b.id]||0;nAll+=n;mon+=n*bizNet(S,b)+bizLocBonus(S,b)*kf;const F=(S.bizFr||{})[b.id];if(F)fr+=F.n*bizFrFee(S,b)*kf;val+=bizValue(b,n)*(1+bizUpPc(S,b));});
+  BIZ.forEach(b=>{const n=S.biz[b.id]||0;nAll+=n;mon+=n*bizNet(S,b)+bizLocBonus(S,b)*kf;const F=(S.bizFr||{})[b.id];if(F)fr+=F.n*bizFrFee(S,b)*kf;val+=bizValue(S,b);});
   val+=bizFrValue(S);
-  let h='<section><h2>Betriebe</h2>'+(nAll?'<div class="pad"><div class="kv"><span>Filialen</span><span>'+nAll+'</span><span>Gewinn im Monat (Schnitt, nach Steuern)</span><span class="pos">'+eur(mon+fr)+'</span>'+(fr?'<span>davon Franchise-Gebühren</span><span>'+eur(fr)+'</span>':'')+'<span>Wert beim Verkauf</span><span>'+eur(val)+'</span></div></div>':'');
+  let h='<section><h2>Betriebe</h2>'+(nAll?'<div class="pad"><div class="kv"><span>Filialen</span><span>'+nAll+'</span><span>Gewinn im Monat (Schnitt, nach Steuern)</span><span class="pos">'+eur(mon+fr)+'</span>'+(fr?'<span>davon Franchise-Gebühren</span><span>'+eur(fr)+'</span>':'')+'<span>Wert (ca. '+BIZ_MULT+' Jahresgewinne)</span><span>'+eur(val)+'</span></div></div>':'');
   BIZ.forEach(b=>{
     const n=S.biz[b.id]||0,c=bizPrice(S,b),pf=bizNet(S,b),ups=bizUps(S,b),F=(S.bizFr||{})[b.id],L=bizLocs(S,b.id);
     const free=b.loc.length&&n>L.length&&S.props.some(x=>bizLocOk(S,x,b));
     h+='<div class="row"><div><span class="name">'+b.name+'</span><span class="tag">'+b.desc+'</span></div><div class="val">'+n+'</div>'+
-     '<div class="meta">Gewinn je Filiale ca. '+eur(pf)+' im Monat nach Steuern ('+(pf*12/c*100).toFixed(0)+' % im Jahr auf den Kaufpreis)'+
+     '<div class="meta">Gewinn je Filiale ca. '+eur(pf)+' im Monat nach Steuern ('+(pf*12/c*100).toFixed(0)+' % im Jahr auf den Kaufpreis)'+(n?'<br>Wert deiner Filialen ca. '+eur(bizValue(S,b))+', beim Verkauf einer Filiale ca. '+eur(bizValOne(S,b)):'')+
      (ups.length?'<br>Ausgebaut: '+ups.map(e=>e.n+' (+'+Math.round(e.f*100)+' %)').join(', '):'')+
      (L.length?'<br>Eigener Standort: '+L.map(x=>PT[x.type].name+' in '+x.city).join(', ')+' (Miete gespart, +'+Math.round(BIZ_LOC_F*100)+' % Gewinn)':'')+
      (F?'<br>Eigene Marke: '+F.n+' Franchisenehmer, zusammen '+eur(F.n*bizFrFee(S,b)*kf)+' im Monat':'')+'</div>'+
@@ -4618,12 +4622,12 @@ function vBiz(){
      (bizFrOk(S,b)?'<button class="btn" data-act="bizfr" data-id="'+b.id+'">Marke gründen</button>':'')+
      (free||L.length?'<button class="btn" data-act="bizloc" data-id="'+b.id+'">Standort</button>':'')+'</div></div>';
   });
-  return h+'<p class="note pad">Betriebe zahlen jeden Monat Gewinn auf dein verfügbares Geld. Jede weitere Filiale kostet 20 % mehr. In einer Rezession sinken die Gewinne. Kaufen und Ausbauen geht auch mit Betriebskredit (10 Jahre, mindestens '+Math.round(BIZ_EK*100)+' % Eigenkapital). Ab '+BIZ_FR_MIN+' Filialen kannst du bei vielen Betrieben eine eigene Marke gründen und Franchise vergeben. Eine eigene, passende Gewerbeimmobilie kann als Standort dienen: keine Miete an Fremde, '+Math.round(BIZ_LOC_F*100)+' % mehr Gewinn, dafür keine Mieteinnahmen aus der Immobilie.</p></section>'+suSec();
+  return h+'<p class="note pad">Betriebe zahlen jeden Monat Gewinn auf dein verfügbares Geld. Ein Betrieb ist etwa '+BIZ_MULT+' Jahresgewinne (vor Steuern) wert: direkt nach dem Kauf meist weniger als der Preis, danach wachsen Gewinn, Wert und Preise mit der Inflation, Ausbau und eigener Standort machen ihn wertvoller, eine Rezession drückt ihn vorübergehend. Jede weitere Filiale kostet 20 % mehr. In einer Rezession sinken die Gewinne. Kaufen und Ausbauen geht auch mit Betriebskredit (10 Jahre, mindestens '+Math.round(BIZ_EK*100)+' % Eigenkapital). Ab '+BIZ_FR_MIN+' Filialen kannst du bei vielen Betrieben eine eigene Marke gründen und Franchise vergeben. Eine eigene, passende Gewerbeimmobilie kann als Standort dienen: keine Miete an Fremde, '+Math.round(BIZ_LOC_F*100)+' % mehr Gewinn, dafür keine Mieteinnahmen aus der Immobilie.</p></section>'+suSec();
 }
 function bizFinSel(){return '<label class="dl" for="bzl">Bezahlen</label><select id="bzl" class="inp"><option value="0">komplett aus eigenem Geld</option><option value="0.5">50 % Betriebskredit</option><option value="0.8">80 % Betriebskredit</option></select><p class="dn" id="bzi"></p>';}
 function bizFinUpd(c){const ls=Number($('bzl').value),k=c*ls,r=bizKRate(S);$('bzi').innerHTML=ls?'Eigenanteil '+eur(c-k)+' · Kredit '+eur(k)+' zu '+pc(r,1)+' Zins · Rate '+eur(annuity(k,r,BIZ_KN))+' im Monat über 10 Jahre':'Du zahlst '+eur(c)+' sofort.';}
 function openBizBuy(id){const b=bizOf(id);if(!b)return;const c=bizPrice(S,b),pf=bizNet(S,b);
-  dlg(b.name+' kaufen','<p class="dn">'+b.desc+' Preis für die '+((S.biz[id]||0)+1)+'. Filiale: <b>'+eur(c)+'</b>'+(bizUps(S,b).length?' (mit deinem Ausbau)':'')+'. Gewinn ca. '+eur(pf)+' im Monat nach Steuern.</p>'+bizFinSel()+'<p class="derr" id="derr"></p>',
+  dlg(b.name+' kaufen','<p class="dn">'+b.desc+' Preis für die '+((S.biz[id]||0)+1)+'. Filiale: <b>'+eur(c)+'</b>'+(bizUps(S,b).length?' (mit deinem Ausbau)':'')+'. Gewinn ca. '+eur(pf)+' im Monat nach Steuern. Wert der Filiale danach ca. '+eur(bizValOne(S,b))+' (etwa '+BIZ_MULT+' Jahresgewinne).</p>'+bizFinSel()+'<p class="derr" id="derr"></p>',
    [{t:'Abbrechen'},{t:'Kaufen',pri:true,f:()=>{const e=bizBuy(S,id,Number($('bzl').value));if(e){derr(e);return false;}dirty=true;saveLocal();toast(b.name+' gekauft.');commit();}}],
    ()=>{bizFinUpd(c);$('bzl').addEventListener('change',()=>bizFinUpd(c));});}
 function openBizUp(id){const b=bizOf(id);if(!b)return;const u=(S.bizUp||{})[id]||{},n=S.biz[id]||0,list=BIZ_UP.filter(e=>bizUpOk(b,e)&&!u[e.id]);
@@ -4632,7 +4636,7 @@ function openBizUp(id){const b=bizOf(id);if(!b)return;const u=(S.bizUp||{})[id]|
    list.map(e=>'<option value="'+e.id+'">'+e.n+' · '+eur(bizUpCost(S,b,e))+' · +'+Math.round(e.f*100)+' % Gewinn</option>').join('')+'</select>'+bizFinSel()+'<p class="derr" id="derr"></p>',
    [{t:'Abbrechen'},{t:'Ausbauen',pri:true,f:()=>{const e=bizUpBuy(S,id,$('bzu').value,Number($('bzl').value));if(e){derr(e);return false;}dirty=true;saveLocal();toast('Ausgebaut.');commit();}}],
    ()=>{const upd=()=>bizFinUpd(bizUpCost(S,b,BIZ_UP.find(e=>e.id===$('bzu').value)));upd();$('bzl').addEventListener('change',upd);$('bzu').addEventListener('change',upd);});}
-function openBizFr(id){const b=bizOf(id);if(!b)return;const c=bizFrCost(b),fee=bizFrFee(S,b)*bizFactor(S)*(1-lv(S).bizTax);
+function openBizFr(id){const b=bizOf(id);if(!b)return;const c=bizFrCost(S,b),fee=bizFrFee(S,b)*bizFactor(S)*(1-lv(S).bizTax);
   dlg('Eigene Marke: '+b.name,'<p class="dn">Du machst aus deinen Filialen eine Marke mit Handbuch, Schulung und Verträgen. Danach melden sich nach und nach Franchisenehmer: Sie eröffnen eigene Filialen auf eigene Kosten und zahlen dir Gebühren.</p><div class="kv"><span>Kosten</span><span>'+eur(c)+' einmalig</span><span>Gebühr je Franchisenehmer</span><span>ca. '+eur(fee)+' im Monat nach Steuern</span><span>Höchstens</span><span>'+BIZ_FR_MAX+' Franchisenehmer je eigene Filiale</span></div><p class="dn">Werbung (Ausbau) lockt schneller neue Partner an. Ab und zu gibt einer auf.</p><p class="derr" id="derr"></p>',
    [{t:'Abbrechen'},{t:'Marke gründen',pri:true,f:()=>{const e=bizFrStart(S,id);if(e){derr(e);return false;}dirty=true;saveLocal();toast('Marke gegründet.');commit();}}]);}
 function openBizLoc(id){const b=bizOf(id);if(!b)return;const L=bizLocs(S,id),P=S.props.filter(x=>bizLocOk(S,x,b)),n=S.biz[id]||0;
