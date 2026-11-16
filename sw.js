@@ -1,6 +1,6 @@
 // Vermögensfabrik, App-Fassung: legt das Spiel einmal auf dem Gerät ab, damit es ohne Netz startet.
 // Abgelegt werden nur die Programmdateien unten. Der Spielstand liegt getrennt davon im Speicher des Browsers.
-const STAND = 'c6579e8d71f1f72f';
+const STAND = 'f8ee15c438455d4d';
 const ABLAGE = 'vermoegensfabrik-' + STAND;
 const DATEIEN = ['./', 'manifest.webmanifest', 'symbol-180.png', 'symbol-512.png'];
 self.addEventListener('install', (e) => {
