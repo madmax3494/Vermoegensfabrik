@@ -309,7 +309,7 @@ button.chip:hover{background:var(--accent-soft);color:var(--accent)}
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f3f5f9" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0b1020" media="(prefers-color-scheme: dark)">
-<script>window.__web="128";</script>
+<script>window.__web="129";</script>
 </head>
 <body>
 <div class="wrap">
@@ -2159,8 +2159,8 @@ function fiFound2Calc(S,br,n){const b=FI_BR.find(x=>x.id===br)||FI_BR[0],eq=FI_E
 function fiFound2(S,br,n){const e=fiFound2Ok(S);if(e)return e;if(!FI_BR.some(x=>x.id===br))return 'Branche unbekannt.';if(!FI_TEAM2.includes(n))return 'Teamgröße nicht möglich.';
   const c=fiFound2Calc(S,br,n);if(c.cost>S.cash+1e-6)return 'Du brauchst '+Math.round(c.cost)+' € eigenes Geld.';
   S.cash-=c.cost;addL(S,'Firma: GmbH-Gründung',-FI_GMBH*S.inf);addL(S,'Firma: Stammkapital',-FI_CAP*S.inf);addL(S,'Firma: Ausstattung',-c.eq);
-  S.firms=S.firms||[];S.fiNr=(S.fiNr||0)+1;const same=[S.firm].concat(S.firms).filter(F=>F&&(F.name||'').startsWith(c.b.n)).length;
-  const F=fiNew(S,{nr:S.fiNr,br:c.b.id,lf:c.b.lf,name:c.b.n+(same?' '+(same+1):''),gmbh:true,gf:true,cap:FI_CAP*S.inf,emp:n,hires:Array(n).fill(S.day)});
+  S.firms=S.firms||[];S.fiNr=(S.fiNr||0)+1;const used=[S.firm].concat(S.firms).filter(Boolean).map(F=>F.name||''),nm=['',' II',' III',' IV',' V',' VI'].map(x=>c.b.n+x).find(x=>!used.includes(x))||c.b.n;
+  const F=fiNew(S,{nr:S.fiNr,br:c.b.id,lf:c.b.lf,name:nm,gmbh:true,gf:true,cap:FI_CAP*S.inf,emp:n,hires:Array(n).fill(S.day)});
   S.firms.push(F);logMsg(S,'Weitere Firma gegründet: '+F.name+' (GmbH mit '+n+' Mitarbeitern). Ein Geschäftsführer leitet sie.');return null;}
 function fiNorm(S,f,day){const G=f&&isFinite(f.emp)?Object.assign(fiNew({day:day}),f,{hires:(Array.isArray(f.hires)?f.hires.filter(isFinite):[]).concat(Array(Math.max(0,(f.emp|0)-(Array.isArray(f.hires)?f.hires.filter(isFinite).length:0))).fill(0)).slice(0,f.emp|0),prof:Array.isArray(f.prof)?f.prof.filter(isFinite):[]}):null;if(!G)return null;return fiAt(S,G,()=>{if(!(f.mkt>0))G.mkt=fiMktGen(S,G);if(G.ipo){const F=G;if(!(F.tot>0))F.tot=akTot(S);if(!(F.own>0))F.own=Math.round((F.share>0?F.share:0.5)*F.tot);F.share=F.own/F.tot;if(!(F.kurs>0)){F.kurs=Math.max(0.01,fiFairK(S));F.kurs0=F.kurs;}if(!(F.kurs0>0))F.kurs0=F.kurs;if(!(F.k1>0))F.k1=F.kurs;if(!isFinite(F.ipoDay))F.ipoDay=(day||0)-AK_LOCK;if(!isFinite(F.mref))F.mref=null;}return S.firm;});}
 function fiMonth(S,money,rnd){
@@ -2594,7 +2594,7 @@ function normalize(o){
   if(!Number.isFinite(x.rent0)){const e=regT(x.lage,x.type);x.rent0=e&&!PT[x.type].norent?Math.round((PT[x.type].fix?e[0]:x.m2*e[0])*(x.q||1)*e[1]/12):0;}
   if(x.ml&&!Number.isFinite(x.ml.r))x.ml=null;if(Array.isArray(x.units))x.units.forEach(u=>{if(u.ml&&!Number.isFinite(u.ml.r))u.ml=null;});});S.offers=(o.offers&&o.offers.length)?o.offers:[];S.promos=o.promos||[];S.promoAcc=o.promoAcc||[];S.lombard=Object.assign({bal:0},o.lombard||{});S.loans=o.loans||[];
   if(Array.isArray(S.loans))S.loans.forEach(l=>{if(l.sid&&!S.sach.some(it=>it.uid===l.sid))delete l.sid;if(l.pid&&!S.props.some(x=>x.uid===l.pid))delete l.pid;});
-  S.partner=o.partner||null;S.plans=(o.plans||[]).filter(p=>TBY[p.id]&&p.amt>0).map(p=>({id:p.id,amt:p.amt,up:p.up>0?Math.min(25,p.up):0,next:isFinite(p.next)?p.next:(o.day||0)+360}));S.homeUp=o.homeUp>=1?Math.min(2.5,o.homeUp):1;S.divAll=o.divAll>0?o.divAll:0;S.ly={};if(o.ly&&typeof o.ly==='object'){for(const k in o.ly)if(isFinite(o.ly[k]))S.ly[k]=o.ly[k];}S.pop=o.pop!==false;S.yrPop=false;S.firms=[];S.firm=fiNorm(S,o.firm,o.day||0);S.firms=(Array.isArray(o.firms)?o.firms:[]).map(f=>fiNorm(S,f,o.day||0)).filter(F=>F&&F.gf).slice(0,FI_MORE);S.fiNr=o.fiNr|0;S.self=o.self&&isFinite(o.self.since)?{since:o.self.since,f:isFinite(o.self.f)?o.self.f:1}:null;S.agen=o.agen&&isFinite(o.agen.next)?{since:o.agen.since||0,next:o.agen.next,n:o.agen.n||0}:null;S.dec=(o.dec&&DECT[o.dec.type]&&Array.isArray(o.dec.opts)&&isFinite(o.dec.until))?o.dec:null;S.sellMode=SELLM.some(x=>x[0]===o.sellMode)?o.sellMode:'fifo';S.rpts=o.rpts!=null?o.rpts:1;S.vor={bav:Object.assign({bal:0,mon:0},o.vor&&o.vor.bav),priv:Object.assign({bal:0,mon:0},o.vor&&o.vor.priv),avd:Object.assign({bal:0,mon:0,k:'std',ein:0,zul:0,px:0},o.vor&&o.vor.avd)};
+  S.partner=o.partner||null;S.plans=(o.plans||[]).filter(p=>TBY[p.id]&&p.amt>0).map(p=>({id:p.id,amt:p.amt,up:p.up>0?Math.min(25,p.up):0,next:isFinite(p.next)?p.next:(o.day||0)+360}));S.homeUp=o.homeUp>=1?Math.min(2.5,o.homeUp):1;S.divAll=o.divAll>0?o.divAll:0;S.ly={};if(o.ly&&typeof o.ly==='object'){for(const k in o.ly)if(isFinite(o.ly[k]))S.ly[k]=o.ly[k];}S.pop=o.pop!==false;S.yrPop=false;S.firms=[];S.firm=fiNorm(S,o.firm,o.day||0);S.firms=(Array.isArray(o.firms)?o.firms:[]).map(f=>fiNorm(S,f,o.day||0)).filter(F=>F&&F.gf).slice(0,FI_MORE);S.fiNr=o.fiNr|0;S.firms.forEach(F=>{const m=/^(.*) ([2-5])$/.exec(F.name||'');if(m&&F.br)F.name=m[1]+' '+['II','III','IV','V'][m[2]-2];});S.self=o.self&&isFinite(o.self.since)?{since:o.self.since,f:isFinite(o.self.f)?o.self.f:1}:null;S.agen=o.agen&&isFinite(o.agen.next)?{since:o.agen.since||0,next:o.agen.next,n:o.agen.n||0}:null;S.dec=(o.dec&&DECT[o.dec.type]&&Array.isArray(o.dec.opts)&&isFinite(o.dec.until))?o.dec:null;S.sellMode=SELLM.some(x=>x[0]===o.sellMode)?o.sellMode:'fifo';S.rpts=o.rpts!=null?o.rpts:1;S.vor={bav:Object.assign({bal:0,mon:0},o.vor&&o.vor.bav),priv:Object.assign({bal:0,mon:0},o.vor&&o.vor.priv),avd:Object.assign({bal:0,mon:0,k:'std',ein:0,zul:0,px:0},o.vor&&o.vor.avd)};
   for(const k of VK){const v=S.vor[k];if(!(v.bal>=0)||!isFinite(v.bal))v.bal=0;if(!(v.mon>=0))v.mon=0;if(VORUPK.includes(k)){v.up=VORUP.includes(v.up)?v.up:0;if(!isFinite(v.next))v.next=(S.day||0)+360;}else{delete v.up;delete v.next;}}if(!AVDK[S.vor.avd.k])S.vor.avd.k='std';if(!(S.vor.avd.px>0))S.vor.avd.px=S.prices&&S.prices.etf?S.prices.etf.p:0;
   S.vorS=(o.vorS&&isFinite(o.vorS.own)&&isFinite(o.vorS.fund))?{own:o.vorS.own,fund:o.vorS.fund}:{own:VK.reduce((t,k)=>t+S.vor[k].bal,0),fund:0};
   S.vorH=Array.isArray(o.vorH)?o.vorH.filter(e=>Array.isArray(e)&&e.length===4&&e.every(isFinite)).slice(-720):[];S.retired=!!o.retired;
@@ -3957,7 +3957,7 @@ function pc(x,d){d=d==null?2:d;return x.toLocaleString('de-DE',{minimumFractionD
 
 const KEY='vermoegensfabrik-v2';
 // Versionsnummer, bei jeder Veröffentlichung hochzählen (bauen-web.sh liest sie hier)
-const VF_VERSION='128';
+const VF_VERSION='129';
 const $=id=>document.getElementById(id);
 const TAB_ICONS={
   uebers:'M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z',
@@ -4802,7 +4802,17 @@ function openFound2(){
    [{t:'Abbrechen'},{t:'Gründen',pri:1,f:()=>{const g=get(),e=fiFound2(S,g.br,g.n);if(e){derr(e);return false;}toast('Firma gegründet.');commit();}}],
    ()=>{const u=()=>{$('f2sum').innerHTML=sum();};u();$('f2b').addEventListener('change',u);document.querySelectorAll('#modal input[name=f2n]').forEach(x=>x.addEventListener('change',u));});
 }
-function firmAll(){let h=S.firm?firmSec():'';(S.firms||[]).forEach((F,k)=>{h+=fiAt(S,F,()=>firmSec()).replace(/data-act="/g,'data-fi="'+k+'" data-act="');});return h;}
+// V129: Übersicht über alle Firmen (ab zwei Firmen), mit Summen und Sprung zum Abschnitt
+function firmSum(){
+  const one=()=>{const F=S.firm,avg=fiAvg(S),cap=fiCapEst(S);return {n:F.name||'Meine Firma',emp:F.emp,avg,val:fiValue(S),cap,over:!F.ipo&&F.emp>cap,st:fiStageName(F),ipo:F.ipo,lead:!F.gf,cr:F.crisis>0,bo:F.boom>0,neu:S.day-F.since<180};};
+  const L=(S.firm?[one()]:[]).concat((S.firms||[]).map(F=>fiAt(S,F,one)));if(L.length<2)return '';
+  const t=L.reduce((a,x)=>({emp:a.emp+x.emp,avg:a.avg+x.avg,val:a.val+x.val}),{emp:0,avg:0,val:0});
+  let h='<section><h2>Meine Firmen</h2><div class="pad"><div class="kv"><span>Firmen</span><span>'+L.length+' von '+(FI_MORE+1)+'</span><span>Mitarbeiter gesamt</span><span>'+t.emp.toLocaleString('de-DE')+'</span><span><b>Gewinn im Schnitt</b></span><span class="'+cls(t.avg)+'"><b>'+eur(t.avg)+' im Monat</b></span><span>Wert aller Firmen</span><span>'+eur(t.val)+'</span></div></div>';
+  L.forEach(x=>{const w=[];if(x.avg<0&&!x.neu)w.push('macht Verlust');if(x.over)w.push('mehr Leute als Aufträge');if(x.cr)w.push('Krise');
+    h+='<div class="row"><div><span class="name">'+x.n+'</span><span class="tag">'+x.st+(x.ipo?' · an der Börse':x.lead?' · du leitest':'')+'</span></div><div class="val '+cls(x.avg)+'">'+eur(x.avg)+'</div><div class="meta">'+x.emp.toLocaleString('de-DE')+' Mitarbeiter, Aufträge für ca. '+x.cap.toLocaleString('de-DE')+'<br>'+(x.ipo?'Deine Aktien ':'Wert ')+eur(x.val)+(x.bo?' · <span class="pos">Boom</span>':'')+(x.neu?' · in der Anlaufzeit':'')+(w.length?'<br><b class="neg">Achtung: '+w.join(', ')+'</b>':'')+'</div><div class="acts"><button class="btn" data-act="subtab" data-id="job/'+secTitle({childNodes:[{textContent:x.n}]})+'">Öffnen</button></div></div>';});
+  return h+'<p class="note pad">Gewinn im Schnitt der letzten 12 Monate, je Firma und zusammen.</p></section>';
+}
+function firmAll(){let h=firmSum()+(S.firm?firmSec():'');(S.firms||[]).forEach((F,k)=>{h+=fiAt(S,F,()=>firmSec()).replace(/data-act="/g,'data-fi="'+k+'" data-act="');});return h;}
 function foundRow(){
   const e=S.retired?'Du bist in Rente.':S.exp<SELF_EXP?'Dafür brauchst du '+SELF_EXP/12+' Jahre Berufserfahrung.':null;
   return '<div class="row"><div><span class="name">Firma gründen</span></div><div class="val">ab '+eur(fiFoundCalc(S,2,false).cost)+'</div><div class="meta">Direkt eine GmbH mit 2, 5 oder 10 Mitarbeitern gründen. Du kündigst deine Stelle und leitest die Firma. Finanzierung mit eigenem Geld oder Gründerkredit (bis '+eur(FI_KFW*S.inf)+', 10 Jahre).'+(e?'<br>'+e:'')+'</div><div class="acts"><button class="btn pri" data-act="found"'+(e?' disabled':'')+'>Gründen</button></div></div>';
