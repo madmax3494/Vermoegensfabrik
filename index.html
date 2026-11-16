@@ -309,7 +309,7 @@ button.chip:hover{background:var(--accent-soft);color:var(--accent)}
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f3f5f9" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0b1020" media="(prefers-color-scheme: dark)">
-<script>window.__web="127";</script>
+<script>window.__web="128";</script>
 </head>
 <body>
 <div class="wrap">
@@ -3957,7 +3957,7 @@ function pc(x,d){d=d==null?2:d;return x.toLocaleString('de-DE',{minimumFractionD
 
 const KEY='vermoegensfabrik-v2';
 // Versionsnummer, bei jeder Veröffentlichung hochzählen (bauen-web.sh liest sie hier)
-const VF_VERSION='127';
+const VF_VERSION='128';
 const $=id=>document.getElementById(id);
 const TAB_ICONS={
   uebers:'M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z',
@@ -4798,10 +4798,11 @@ function openFound2(){
   const sum=()=>{const g=get(),c=fiFound2Calc(S,g.br,g.n),pe=3400*c.b.lf*S.inf,pp=g.n*pe*(1.3-0.004*g.n-1);
     return 'Kosten '+eur(c.cost)+' (Notar '+eur(FI_GMBH*S.inf)+', Stammkapital '+eur(FI_CAP*S.inf)+', Ausstattung '+eur(c.eq)+')'+(c.cost>S.cash?' <span class="neg">(so viel hast du nicht)</span>':'')+'.<br>Jeder Mitarbeiter kostet '+eur(pe)+' im Monat. Gewinn später ca. '+eur(pp)+' im Monat vor Geschäftsführer, wenn die Aufträge reichen.<br><span class="neg">Anlaufzeit: In den ersten 3 Monaten bringen neue Leute erst den halben Umsatz.</span>';};
   dlg('Weitere Firma gründen','<p class="dn">Du gründest eine weitere GmbH. Ein Geschäftsführer leitet sie von Anfang an, an deinem Beruf ändert sich nichts.</p><label class="dl" for="f2b">Branche</label><select id="f2b" class="inp">'+
-   FI_BR.map(b=>'<option value="'+b.id+'">'+b.n+' · '+eur(3400*b.lf*S.inf)+' je Mitarbeiter</option>').join('')+'</select><div class="dl">Mitarbeiter</div>'+FI_TEAM2.map((n,i)=>r('f2n',n,'<b>'+n+' Mitarbeiter</b>',i===0)).join('')+'<p class="note" id="f2sum"></p><p class="derr" id="derr"></p>',
+   FI_BR.map(b=>'<option value="'+b.id+'">'+b.n+'</option>').join('')+'</select><div class="dl">Mitarbeiter</div>'+FI_TEAM2.map((n,i)=>r('f2n',n,'<b>'+n+' Mitarbeiter</b>',i===0)).join('')+'<p class="note" id="f2sum"></p><p class="derr" id="derr"></p>',
    [{t:'Abbrechen'},{t:'Gründen',pri:1,f:()=>{const g=get(),e=fiFound2(S,g.br,g.n);if(e){derr(e);return false;}toast('Firma gegründet.');commit();}}],
    ()=>{const u=()=>{$('f2sum').innerHTML=sum();};u();$('f2b').addEventListener('change',u);document.querySelectorAll('#modal input[name=f2n]').forEach(x=>x.addEventListener('change',u));});
 }
+function firmAll(){let h=S.firm?firmSec():'';(S.firms||[]).forEach((F,k)=>{h+=fiAt(S,F,()=>firmSec()).replace(/data-act="/g,'data-fi="'+k+'" data-act="');});return h;}
 function foundRow(){
   const e=S.retired?'Du bist in Rente.':S.exp<SELF_EXP?'Dafür brauchst du '+SELF_EXP/12+' Jahre Berufserfahrung.':null;
   return '<div class="row"><div><span class="name">Firma gründen</span></div><div class="val">ab '+eur(fiFoundCalc(S,2,false).cost)+'</div><div class="meta">Direkt eine GmbH mit 2, 5 oder 10 Mitarbeitern gründen. Du kündigst deine Stelle und leitest die Firma. Finanzierung mit eigenem Geld oder Gründerkredit (bis '+eur(FI_KFW*S.inf)+', 10 Jahre).'+(e?'<br>'+e:'')+'</div><div class="acts"><button class="btn pri" data-act="found"'+(e?' disabled':'')+'>Gründen</button></div></div>';
@@ -4826,15 +4827,14 @@ function qInfo(q,noAg){const ag=noAg?0:fbShare(S,q),L=fbLen(q),op=qOpens(q.id).f
 function bindLine(){const d=bindDue(S);if(d<0.5)return '';const end=Math.max(0,...(S.binds||[]).filter(b=>b.t0===jobT0(S)).map(b=>b.end));
   return '<span>Rückzahlungsklausel</span><span class="neg">'+eur(d)+(end>S.day?' bis '+dateOf(end).txt:' (laufende Fortbildung)')+'</span>';}
 function vJob(){
-  if(S.retired)return '<section><h2>Beruf</h2><p class="note pad" style="margin-top:0">Du bist in Rente. Stellen und Fortbildungen gibt es nicht mehr. Deine Rente und dein Vermögen tragen dich jetzt.</p></section>';
+  if(S.retired)return '<section><h2>Beruf</h2><p class="note pad" style="margin-top:0">Du bist in Rente. Stellen und Fortbildungen gibt es nicht mehr. Deine Rente und dein Vermögen tragen dich jetzt.'+(fiAllN(S)?' Deine Firmen laufen mit Geschäftsführer weiter, du findest sie hier darunter.':'')+'</p></section>'+firmAll();
   const jb=JBY[S.job.id],yrs=(S.day-S.job.since)/360,yt=(S.day-jobT0(S))/360,y1=v=>(Math.floor(v*10)/10).toString().replace('.',',');
   let h=S.self?selfSec():'<section><h2>Mein Job</h2><div class="pad"><div class="kv"><span>Stelle</span><span>'+jb.n+(S.unemp?' (gekündigt)':'')+'</span><span>Bereich</span><span>'+jb.f+'</span>'+(S.unemp?'':'<span>Arbeitgeber</span><span>'+EMPS[empOf(S)].n+'</span>'+bindLine())+'<span>Auf dieser Stelle</span><span>'+y1(yrs)+' Jahre</span>'+(!S.unemp&&yt-yrs>0.05?'<span>Im Betrieb seit</span><span>'+y1(yt)+' Jahren</span>':'')+'<span>'+(S.unemp?'Arbeitslosengeld':'Gehalt netto')+'</span><span class="'+(payWhy()?'neg':'pos')+'">'+eur(gehaltNow(S))+' im Monat'+(payWhy()?'<br><small>'+payWhy()+'</small>':'')+'</span><span>Weihnachtsgeld</span><span>'+Math.round((S.unemp?wgJob(jb):wgNow(S))*100)+' % im Dezember</span><span>Berufserfahrung</span><span>'+(Math.floor(S.exp/12*10)/10).toString().replace('.',',')+' Jahre</span><span>Status</span><span>+'+jb.s+'</span></div>'+
    '<p class="note">Pro Jahr im Betrieb steigt dein Gehalt um 3 %, bis zu 35 %. Im Dezember gibt es Weihnachtsgeld, bei guter Erholung auch mal einen Bonus. Ein Wechsel zu einem neuen Arbeitgeber setzt das zurück, ein interner Wechsel nicht. Erschöpfung (unter 30 Erholung) kostet Gehalt und kann dich krank machen.</p>'+(jb.edu&&!S.unemp?'':(S.unemp?'':'<div class="acts" style="padding:0 0 8px"><button class="btn" data-act="apply" data-id="'+S.job.id+'">Gleiche Stelle woanders</button></div>')+jobExtra()+selfRow()+(S.firm?'':foundRow())+agRow())+'</div></section>';
   if(S.study&&S.study.edu&&JBY[S.study.to]){const st=S.study,to=JBY[st.to],w=S.job.id==='azubi'?'Ausbildung':'Studium',rest=eduRest(S),ch=[st.id].concat(st.chain||[]);
     h+='<section><h2>'+(w==='Ausbildung'?'Meine ':'Mein ')+w+'</h2><div class="pad"><div class="kv"><span>Ziel</span><span>'+to.n+'</span><span>Gerade</span><span>'+QBY[st.id].name+', noch '+st.left+' Mon.</span>'+(ch.length>1?'<span>Danach</span><span>'+ch.slice(1).map(q=>QBY[q].name).join(', ')+'</span>':'')+'<span>Fertig in</span><span>'+(rest>=12?(Math.floor(rest/12*10)/10).toString().replace('.',',')+' Jahren':rest+' Monaten')+'</span><span>Danach netto ca.</span><span>'+eur(to.net*lv(S).gehalt/3200)+' im Monat</span></div>'+
      '<p class="note">'+(w==='Ausbildung'?'Du bekommst eine Ausbildungsvergütung. ':'Du lebst von Nebenjob und BAföG und zahlst einen kleinen Semesterbeitrag. ')+'Als '+(w==='Ausbildung'?'Azubi':'Student')+' brauchst du nur halb so viel zum Leben. Nach dem Abschluss startest du automatisch als '+to.n+(w==='Ausbildung'?', meist übernimmt dich dein Ausbildungsbetrieb':'')+'. Bewerben, Selbstständigkeit und Personalagentur gehen erst danach.</p></div></section>';}
-  if(S.firm)h+=firmSec();
-  (S.firms||[]).forEach((F,k)=>{h+=fiAt(S,F,()=>firmSec()).replace(/data-act="/g,'data-fi="'+k+'" data-act="');});
+  h+=firmAll();
   h+='<section>'+secHead('side','Nebentätigkeit',S.side?'läuft':'');
   if(!S.ui.c.side){
     SIDES.forEach(sd=>{const act=S.side===sd.id,okx=S.exp>=sd.exp;
