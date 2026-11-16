@@ -309,7 +309,7 @@ button.chip:hover{background:var(--accent-soft);color:var(--accent)}
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f3f5f9" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0b1020" media="(prefers-color-scheme: dark)">
-<script>window.__web="113";</script>
+<script>window.__web="114";</script>
 </head>
 <body>
 <div class="wrap">
@@ -779,7 +779,10 @@ function r2(x){return Math.round(x*100)/100;}
 function lv(S){return LEVELS[S.level];}
 
 /* ---------- Kalender ---------- */
-function dateOf(day){const y=START_YEAR+Math.floor(day/360),m=Math.floor(day/30)%12,d=day%30+1;return {y,m,d,txt:d+'. '+MONTHS[m]+' '+y};}
+// Kalender (V114): intern weiter 12 Monate à 30 Spieltage, angezeigt wird ein echter Kalender (Februar 28/29 Tage, Schaltjahre, 30/31-Tage-Monate). Der 1. Spieltag eines Monats ist immer der 1., der letzte immer der Monatsletzte.
+function leapY(y){return (y%4===0&&y%100!==0)||y%400===0;}
+function monDays(y,m){return m===1?(leapY(y)?29:28):[31,28,31,30,31,30,31,31,30,31,30,31][m];}
+function dateOf(day){day=Math.floor(day);const y=START_YEAR+Math.floor(day/360),m=Math.floor(day/30)%12,i=((day%30)+30)%30,d=1+Math.round(i*(monDays(y,m)-1)/29);return {y,m,d,txt:d+'. '+MONTHS[m]+' '+y};}
 
 /* ---------- Steuer ---------- */
 function taxEv(S,amount,dry){
@@ -3693,7 +3696,7 @@ function pc(x,d){d=d==null?2:d;return x.toLocaleString('de-DE',{minimumFractionD
 
 const KEY='vermoegensfabrik-v2';
 // Versionsnummer, bei jeder Veröffentlichung hochzählen (bauen-web.sh liest sie hier)
-const VF_VERSION='113';
+const VF_VERSION='114';
 const $=id=>document.getElementById(id);
 const TAB_ICONS={
   uebers:'M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z',
