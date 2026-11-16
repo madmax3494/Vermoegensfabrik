@@ -309,7 +309,7 @@ button.chip:hover{background:var(--accent-soft);color:var(--accent)}
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f3f5f9" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0b1020" media="(prefers-color-scheme: dark)">
-<script>window.__web="121";</script>
+<script>window.__web="122";</script>
 </head>
 <body>
 <div class="wrap">
@@ -3914,7 +3914,7 @@ function pc(x,d){d=d==null?2:d;return x.toLocaleString('de-DE',{minimumFractionD
 
 const KEY='vermoegensfabrik-v2';
 // Versionsnummer, bei jeder Veröffentlichung hochzählen (bauen-web.sh liest sie hier)
-const VF_VERSION='121';
+const VF_VERSION='122';
 const $=id=>document.getElementById(id);
 const TAB_ICONS={
   uebers:'M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z',
@@ -4060,11 +4060,51 @@ function openDecDlg(){
   const body='<p class="dn">'+d.text+'</p>'+d.opts.map(o=>'<p class="dn" style="margin:0 0 8px"><b>'+o.t+':</b> '+o.d+'</p>').join('')+'<p class="dn">Das Spiel ist angehalten. Ohne Antwort passiert in zwei Monaten: '+d.opts.find(o=>o.k===d.defk).t+'.</p>';
   dlg(d.title,body,d.opts.map((o,i)=>({t:o.t,pri:i===0,f:()=>{const r=decPick(S,Math.random,o.k);if(!r.ok){toast(r.msg);return false;}toast(r.msg);dirty=true;saveLocal();updateHeader();}})).concat([{t:'Später entscheiden'}]));
 }
+/* ---------- Verlauf über die Jahre (V122) ---------- */
+const YRV=[['nw','Vermögen'],['debt','Schulden'],['cf','Überschuss'],['rent','Mieten']];
+let yrView='nw';
+const CF_IN=new Set(LIFE_GRP.filter(g=>g[0]!=='Erbschaften und Geschenke').flatMap(g=>g[1]).filter(k=>!['Firmenverkauf','Börsengang','Verkauf eigener AG-Aktien','Start-up: Verkaufserlös'].includes(k))),CF_OUT=new Set(LIFE_EXP.flatMap(g=>g[1]));
+function yrCf(l){let t=0;for(const k in (l||{}))if(CF_IN.has(k)||CF_OUT.has(k))t+=l[k];return t;}
+function yrRent(l){l=l||{};return ['Mieteinnahmen','Ferienvermietung','Pachteinnahmen','Jagdpacht'].reduce((a,k)=>a+(l[k]>0?l[k]:0),0);}
+function yrData(k){
+  const Y=S.yrs||[],lab=Y.map(y=>String(y.y)),cy=dateOf(S.day).y;
+  if(k==='cf'||k==='rent'){const f=k==='cf'?yrCf:yrRent;return {bar:true,f,v:Y.map(y=>f(y.led)).concat([f(S.ly)]),lab:lab.concat([cy+' bisher']),
+    hint:k==='cf'?'Laufende Einnahmen (Arbeit, Mieten, Zinsen, Betriebe, Rente) minus laufende Ausgaben (Leben, Steuern, Kreditzinsen, Instandhaltung) je Jahr. Käufe, Verkäufe, Tilgung und Erbschaften zählen nicht mit.':'Mieten, Ferienvermietung und Pacht je Jahr, vor Kosten.'};}
+  const P=parts(S);
+  return {bar:false,v:Y.map(y=>k==='debt'?y.debt:y.nw).concat([k==='debt'?P.debt:P.nw]),lab:lab.concat(['heute']),
+    hint:k==='debt'?'Schulden am Jahresende (Kredite, Dispo, Lombard)':'Gesamtvermögen am Jahresende'};
+}
+function drawYears(cv,d){
+  if(!cv)return;const dpr=Math.min(2,window.devicePixelRatio||1),w=cv.clientWidth,h=cv.clientHeight;if(!w)return;
+  cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);const g=cv.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,w,h);
+  const cs=getComputedStyle(document.documentElement),C=k=>cs.getPropertyValue(k).trim(),v=d.v.map(x=>isFinite(x)?x:0),n=v.length;
+  let lo=Math.min(0,...v),hi=Math.max(0,...v);if(hi-lo<1){hi+=1;}
+  const pad=(hi-lo)*0.08;hi+=pad;if(lo<0)lo-=pad;
+  const X0=58,B=h-20,T=8,Y=x=>B-(x-lo)/(hi-lo)*(B-T),M=Math.max(Math.abs(lo),Math.abs(hi)),fy=x=>{const a=Math.abs(x),dz=(v,u)=>(v<10?String(Math.round(v*10)/10).replace('.',','):nf0.format(Math.round(v)))+u;return (x<0?'−':'')+(a<0.5?'0':M>=1e6?dz(a/1e6,' Mio'):M>=1e4?dz(a/1e3,' T'):nf0.format(Math.round(a)));};
+  g.font='11px '+(getComputedStyle(document.body).getPropertyValue('--mono')||'sans-serif');g.textBaseline='middle';
+  const ticks=[lo,lo+(hi-lo)/2,hi];
+  const tk=[];(lo<0?[0]:[]).concat(ticks.filter(t=>lo>=0||t!==0)).forEach(t=>{if(!tk.some(u=>Math.abs(Y(u)-Y(t))<14))tk.push(t);});tk.forEach(t=>{g.strokeStyle=C('--line');g.setLineDash(t===0&&lo<0?[]:[2,3]);g.beginPath();g.moveTo(X0,Y(t));g.lineTo(w,Y(t));g.stroke();g.fillStyle=C('--muted');g.fillText(fy(t),2,Y(t));});
+  g.setLineDash([]);
+  const W=w-X0-10;
+  if(d.bar){const bw=W/n,b=Math.max(2,Math.min(28,bw*0.7));
+    v.forEach((x,i)=>{const cx=X0+bw*(i+0.5),y0=Y(0),y1=Y(x);g.fillStyle=x<0?C('--bad'):C('--good');g.globalAlpha=i===n-1?0.45:1;g.fillRect(cx-b/2,Math.min(y0,y1),b,Math.max(1,Math.abs(y1-y0)));});g.globalAlpha=1;}
+  else{const dx=W/Math.max(1,n-1),X=i=>n>1?X0+i*dx:X0+W/2;
+    if(n>1){g.fillStyle=C('--accent');g.globalAlpha=.15;g.beginPath();g.moveTo(X(0),Y(Math.max(lo,0)));v.forEach((x,i)=>g.lineTo(X(i),Y(x)));g.lineTo(X(n-1),Y(Math.max(lo,0)));g.closePath();g.fill();g.globalAlpha=1;}
+    g.strokeStyle=C('--ink');g.lineWidth=1.8;g.beginPath();v.forEach((x,i)=>{i?g.lineTo(X(i),Y(x)):g.moveTo(X(i),Y(x));});g.stroke();
+    g.fillStyle=C('--accent');g.beginPath();g.arc(X(n-1),Y(v[n-1]),4,0,7);g.fill();}
+  g.fillStyle=C('--muted');g.textBaseline='alphabetic';const l0=d.lab[0],l1=d.lab[n-1];
+  if(n>1)g.fillText(l0,X0,h-4);const tw=g.measureText(l1).width;g.fillText(l1,Math.max(X0,w-tw-4),h-4);
+}
 function vStat(){
   const P=parts(S),tot=P.cash+P.bank+P.sec+P.gold+P.sach+P.re+P.biz+P.vor+P.gk;
   const segs=[['Verfügbares Geld',P.cash],['Bank',P.bank],['Wertpapiere',P.sec],['Gold',P.gold],['Sachwerte',P.sach],['Immobilien',P.re],['Betriebe',P.biz],['Altersvorsorge',P.vor],['Genuss-Konto',P.gk]].filter(s=>s[1]>0.5);
-  let h='<section><h2>Vermögen nach Jahren</h2><div class="cv"><canvas id="cvYr"></canvas></div><div class="hint">Gesamtvermögen am Jahresende</div>';
-  if(!S.yrs.length)h+='<p class="note pad">Der erste Jahresrückblick erscheint im Dezember.</p>';
+  const yd=yrData(yrView),last=yd.v.length>1?yd.v[yd.v.length-2]:null;
+  let h='<section><h2>Verlauf über die Jahre</h2><div class="chips">'+YRV.map(r=>'<button type="button" class="chip" style="padding-left:8px;padding-right:8px" data-act="yrview" data-id="'+r[0]+'" aria-pressed="'+(yrView===r[0])+'">'+r[1]+'</button>').join('')+'</div><div class="cv"><canvas id="cvYr"></canvas></div><div class="hint">'+yd.hint+'</div>';
+  if(!S.yrs.length)h+='<p class="note pad">Der erste Jahresrückblick erscheint im Dezember. Bis dahin siehst du nur das laufende Jahr.</p>';
+  else h+='<div class="pad"><div class="kv">'+(last!=null?'<span>Letztes volles Jahr ('+S.yrs[S.yrs.length-1].y+')</span><span'+(yd.bar?' class="'+cls(last)+'"':'')+'>'+eur(last)+'</span>':'')+
+   '<span>'+(yd.bar?'Laufendes Jahr bisher':'Heute')+'</span><span'+(yd.bar?' class="'+cls(yd.v[yd.v.length-1])+'"':'')+'>'+eur(yd.v[yd.v.length-1])+'</span>'+
+   (yd.bar&&S.yrs.length?'<span>Im Schnitt pro Jahr</span><span>'+eur(S.yrs.reduce((a,y)=>a+yd.f(y.led),0)/S.yrs.length)+'</span>':'')+
+   (!yd.bar&&S.yrs.length?'<span>Vor '+S.yrs.length+' Jahr'+(S.yrs.length>1?'en':'')+'</span><span>'+eur(yd.v[0])+'</span>':'')+'</div></div>';
   h+='</section><section><h2>Zusammensetzung heute</h2><div class="kv">'+(segs.length?segs.map(s=>'<span>'+s[0]+'</span><span>'+eur(s[1])+' ('+pc(s[1]/Math.max(1,tot)*100,0)+')</span>').join(''):'<span>Noch nichts</span><span></span>')+
    '<span class="sep"></span><span>Schulden</span><span>'+eur(P.debt)+'</span><span>Höchstes Vermögen</span><span>'+eur(S.peak)+'</span><span>Gespielte Jahre</span><span>'+Math.floor(S.day/360)+'</span></div></section>';
   if(S.yrs.length){h+='<section><h2>Jahresrückblick</h2>';
@@ -4972,7 +5012,7 @@ function renderView(){
   if(bl)v.querySelectorAll('.subtabs').forEach((b,i)=>{if(bl[i]!=null)b.scrollLeft=bl[i];});barKey=bk;
   if(tab==='rente')drawVor($('cvVor'));
   if(tab==='hv')drawHv();
-  if(tab==='stat'){const ys=S.yrs.map(y=>y.nw);ys.push(netWorth(S));drawSeries($('cvYr'),ys.length>1?ys:[ys[0],ys[0]+1],x=>nf0.format(Math.round(x)));}
+  if(tab==='stat')drawYears($('cvYr'),yrData(yrView));
   if(tab==='uebers'){drawSeries($('cvNW'),S.nwHist.length>1?S.nwHist:[S.nwHist[0],S.nwHist[0]+1],x=>nf0.format(Math.round(x)));drawSeries($('cvEtf'),S.prices.etf.hist,x=>fmt(x));}
 }
 
@@ -5102,6 +5142,7 @@ function act(a,id){
   if(a==='fpgo'||a==='gotab'){return goTab(id);}
   if(a==='gl'){const g=GLOSS.find(x=>x[0]===id);if(g)dlg(g[0],'<p class="dn">'+g[2]+'</p>',[{t:'Verstanden',pri:true}]);return;}
   if(a==='marry'){const p=PBY[id],c=hochzeitCost(S);return dlg('Heiraten','<p class="dn">'+p.n+'. Die Hochzeit kostet '+eur(c)+'.</p>',[{t:'Abbrechen'},{t:'Heiraten',pri:1,f:()=>{const e=marry(S,id);if(e){toast(e);return false;}toast('Herzlichen Glückwunsch!');commit();}}]);}
+  if(a==='yrview'){yrView=YRV.some(r=>r[0]===id)?id:'nw';return renderView();}
   if(a==='vorview'){vorView=id==='prog'?'prog':'hist';return renderView();}
   if(a==='avdk'){const v=S.vor.avd;return dlg('Anlage im Altersvorsorgedepot','<p class="dn">Du kannst die Anlage jederzeit wechseln. Das bisherige Guthaben wird mit umgestellt.</p>'+Object.keys(AVDK).map(k=>'<label class="radio" style="display:flex;gap:8px;align-items:flex-start;margin:8px 0"><input type="radio" name="avdk" value="'+k+'"'+(v.k===k?' checked':'')+'><span><b>'+AVDK[k].n+'</b><br><span class="note" style="margin:0">'+AVDK[k].d+' Erwartete Rendite ca. '+pc((AVDK[k].w*0.07+(1-AVDK[k].w)*0.025-AVDK[k].c)*100,1)+' pro Jahr.</span></span></label>').join('')+'<p class="derr" id="derr"></p>',
     [{t:'Abbrechen'},{t:'Übernehmen',pri:true,f:()=>{const c=document.querySelector('input[name=avdk]:checked');const e=avdKind(S,c?c.value:'std');if(e){derr(e);return false;}toast('Anlage geändert.');commit();}}]);}
