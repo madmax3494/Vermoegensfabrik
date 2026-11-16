@@ -309,7 +309,7 @@ button.chip:hover{background:var(--accent-soft);color:var(--accent)}
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f3f5f9" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0b1020" media="(prefers-color-scheme: dark)">
-<script>window.__web="124";</script>
+<script>window.__web="125";</script>
 </head>
 <body>
 <div class="wrap">
@@ -1425,14 +1425,33 @@ const BIZ_UP=[{id:'ren',n:'Renovierung und neue Einrichtung',pc:0.15,f:0.10},{id
  {id:'dig',n:'Digitale Kasse, Buchung und Planung',pc:0.06,f:0.05},{id:'onl',n:'Onlineshop und Lieferdienst',pc:0.20,f:0.12,on:1}];
 const BIZ_FR_MIN=3,BIZ_FR_FEE=0.35,BIZ_FR_MAX=4,BIZ_LOC_F=0.15,BIZ_EK=0.2,BIZ_KN=120;
 function bizOf(id){return BIZ.find(x=>x.id===id);}
-function bizUps(S,b){const u=(S.bizUp||{})[b.id]||{};return BIZ_UP.filter(e=>u[e.id]);}
-function bizUpOk(b,e){return !e.on||!!b.on;}
+// V125: Ausbauten passend je Betrieb (ren/mkt/dig/onl bleiben als Kennung, damit alte Spielstände gelten)
+const BIZ_UPX={
+ kiosk:[['ren','Neue Einrichtung und Kühlregale'],['mkt'],['dig','Kartenzahlung und Warenwirtschaft'],['pak','Paketshop-Annahmestelle',.08,.07],['snack','Kaffee- und Snack-Theke',.12,.09]],
+ eis:[['ren','Neue Einrichtung und Eismaschinen'],['mkt'],['dig','Kartenzahlung und Bestell-App'],['terr','Größere Terrasse',.15,.10],['lief','Lieferdienst und Eistorten auf Bestellung',.10,.08]],
+ wasch:[['ren','Neue Maschinen (schneller, sparsamer)',.20,.12],['mkt'],['dig','App-Bezahlung und Belegungsanzeige'],['reini','Textilreinigung und Abholservice',.12,.09]],
+ studio:[['ren','Neues Studio-Licht und Kameras'],['mkt'],['dig','Online-Terminbuchung'],['onl','Onlineshop für Abzüge und Fotobücher']],
+ werk:[['ren','Neue Hebebühnen und Diagnosegeräte'],['mkt'],['dig','Online-Terminbuchung'],['eauto','E-Auto-Service und Hochvolt-Schulung',.18,.12],['reifen','Reifenhotel (Einlagerung)',.08,.07]],
+ cafe:[['ren'],['mkt'],['dig','Digitale Kasse und Bestell-App'],['lief','Lieferdienst und Catering',.12,.09],['rost','Eigene Rösterei und Bohnen-Onlineshop',.20,.12]],
+ fit:[['ren','Neue Geräte'],['mkt'],['dig','Mitglieder-App und Check-in'],['kurs','Online-Kurse und Personal Training',.15,.10],['sauna','Sauna und Wellness',.20,.12]],
+ rest:[['ren'],['mkt'],['dig','Online-Reservierung und Kassensystem'],['lief','Lieferdienst und Catering',.15,.10],['terr','Terrasse und Biergarten',.12,.09]],
+ pflege:[['ren','Neue Dienstwagen',.12,.08],['mkt','Werbung und Anwerbung von Fachkräften'],['dig','Digitale Tourenplanung und Pflegedoku',.08,.07],['tag','Tagespflege mit eigenen Räumen',.25,.15]],
+ lade:[['ren','Mehr Schnellladesäulen',.25,.15],['mkt','Werbung und Partnerschaften'],['dig','App und Ad-hoc-Bezahlung'],['solar','Solardach und Batteriespeicher',.20,.12],['shop','Shop und Lounge für Wartende',.10,.07]],
+ soft:[['ren','Neue Büros und Technik'],['mkt','Marketing und Vertrieb'],['cloud','Cloud-Version im Abo (SaaS)',.25,.15],['ki','KI-Funktionen im Produkt',.20,.12]],
+ hotel:[['ren','Zimmer renovieren'],['mkt','Werbung und Buchungsportale'],['dig','Online-Buchung und digitaler Check-in'],['tag','Tagungsräume erweitern',.18,.12],['spa','Wellness und Spa',.22,.12]],
+ fabrik:[['ren','Neue Maschinen',.20,.12],['mkt','Vertrieb und Messen'],['dig','Automatisierung und Robotik',.25,.15],['energie','Solardach und Energiesparen',.12,.08]],
+ handel:[['ren','Neues Lager'],['mkt','Vertrieb und Werbung'],['dig','Warenwirtschaft und Logistik-Software'],['onl','Onlineshop und Marktplätze']]
+};
+function bizUpList(b){const L=BIZ_UPX[b.id]||[];return L.map(a=>{const d=BIZ_UP.find(e=>e.id===a[0])||{};return {id:a[0],n:a[1]||d.n,pc:a[2]!=null?a[2]:d.pc,f:a[3]!=null?a[3]:d.f};});}
+function bizUps(S,b){const u=(S.bizUp||{})[b.id]||{},L=bizUpList(b);// alte, nicht mehr passende Ausbauten aus früheren Spielständen gelten weiter
+  return L.filter(e=>u[e.id]).concat(BIZ_UP.filter(e=>u[e.id]&&!L.some(x=>x.id===e.id)));}
+function bizUpOk(b,e){return bizUpList(b).some(x=>x.id===e.id);}
 function bizUpF(S,b){return bizUps(S,b).reduce((a,e)=>a+e.f,1);}
 function bizUpPc(S,b){return bizUps(S,b).reduce((a,e)=>a+e.pc,0);}
 function bizProf(S,b){return b.prof*bizUpF(S,b)*(S.inf||1);}// je Filiale, vor Konjunktur, Manager und Steuer
 function bizPrice(S,b){return bizCost(b,S.biz[b.id]||0)*(1+bizUpPc(S,b))*(S.inf||1);}
 function bizUpCost(S,b,e){return e.pc*b.cost*Math.max(1,S.biz[b.id]||0)*(S.inf||1);}
-function bizUpBuy(S,id,k,ls){const b=bizOf(id),e=BIZ_UP.find(x=>x.id===k);if(!b||!e)return 'Unbekannt.';if(!(S.biz[id]>0))return 'Du besitzt noch keinen solchen Betrieb.';
+function bizUpBuy(S,id,k,ls){const b=bizOf(id),e=b&&bizUpList(b).find(x=>x.id===k);if(!b||!e)return 'Unbekannt.';if(!(S.biz[id]>0))return 'Du besitzt noch keinen solchen Betrieb.';
   if(!bizUpOk(b,e))return 'Das passt nicht zu diesem Betrieb.';S.bizUp=S.bizUp||{};const u=S.bizUp[id]=S.bizUp[id]||{};if(u[k])return 'Schon gemacht.';
   const c=bizUpCost(S,b,e),r=bizPay(S,c,ls,b.name+' (Ausbau)',(S.biz[id]||0)*bizProf(S,b)*e.f);if(r)return r;u[k]=1;
   logMsg(S,b.name+': '+e.n+' für '+Math.round(c)+' €. Der Gewinn je Filiale steigt um '+Math.round(e.f*100)+' %.');return null;}
@@ -3919,7 +3938,7 @@ function pc(x,d){d=d==null?2:d;return x.toLocaleString('de-DE',{minimumFractionD
 
 const KEY='vermoegensfabrik-v2';
 // Versionsnummer, bei jeder Veröffentlichung hochzählen (bauen-web.sh liest sie hier)
-const VF_VERSION='124';
+const VF_VERSION='125';
 const $=id=>document.getElementById(id);
 const TAB_ICONS={
   uebers:'M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z',
@@ -4630,12 +4649,12 @@ function openBizBuy(id){const b=bizOf(id);if(!b)return;const c=bizPrice(S,b),pf=
   dlg(b.name+' kaufen','<p class="dn">'+b.desc+' Preis für die '+((S.biz[id]||0)+1)+'. Filiale: <b>'+eur(c)+'</b>'+(bizUps(S,b).length?' (mit deinem Ausbau)':'')+'. Gewinn ca. '+eur(pf)+' im Monat nach Steuern. Wert der Filiale danach ca. '+eur(bizValOne(S,b))+' (etwa '+BIZ_MULT+' Jahresgewinne).</p>'+bizFinSel()+'<p class="derr" id="derr"></p>',
    [{t:'Abbrechen'},{t:'Kaufen',pri:true,f:()=>{const e=bizBuy(S,id,Number($('bzl').value));if(e){derr(e);return false;}dirty=true;saveLocal();toast(b.name+' gekauft.');commit();}}],
    ()=>{bizFinUpd(c);$('bzl').addEventListener('change',()=>bizFinUpd(c));});}
-function openBizUp(id){const b=bizOf(id);if(!b)return;const u=(S.bizUp||{})[id]||{},n=S.biz[id]||0,list=BIZ_UP.filter(e=>bizUpOk(b,e)&&!u[e.id]);
+function openBizUp(id){const b=bizOf(id);if(!b)return;const u=(S.bizUp||{})[id]||{},n=S.biz[id]||0,list=bizUpList(b).filter(e=>!u[e.id]);
   if(!list.length)return dlg('Ausbauen','<p class="dn">'+b.name+' ist schon voll ausgebaut.</p>',[{t:'Schließen',pri:true}]);
   dlg(b.name+' ausbauen','<p class="dn">Der Ausbau gilt '+(n===1?'für deine Filiale':'für alle '+n+' Filialen')+' und auch für spätere (die kosten dann entsprechend mehr).</p><label class="dl" for="bzu">Maßnahme</label><select id="bzu" class="inp">'+
    list.map(e=>'<option value="'+e.id+'">'+e.n+' · '+eur(bizUpCost(S,b,e))+' · +'+Math.round(e.f*100)+' % Gewinn</option>').join('')+'</select>'+bizFinSel()+'<p class="derr" id="derr"></p>',
    [{t:'Abbrechen'},{t:'Ausbauen',pri:true,f:()=>{const e=bizUpBuy(S,id,$('bzu').value,Number($('bzl').value));if(e){derr(e);return false;}dirty=true;saveLocal();toast('Ausgebaut.');commit();}}],
-   ()=>{const upd=()=>bizFinUpd(bizUpCost(S,b,BIZ_UP.find(e=>e.id===$('bzu').value)));upd();$('bzl').addEventListener('change',upd);$('bzu').addEventListener('change',upd);});}
+   ()=>{const upd=()=>bizFinUpd(bizUpCost(S,b,bizUpList(b).find(e=>e.id===$('bzu').value)));upd();$('bzl').addEventListener('change',upd);$('bzu').addEventListener('change',upd);});}
 function openBizFr(id){const b=bizOf(id);if(!b)return;const c=bizFrCost(S,b),fee=bizFrFee(S,b)*bizFactor(S)*(1-lv(S).bizTax);
   dlg('Eigene Marke: '+b.name,'<p class="dn">Du machst aus deinen Filialen eine Marke mit Handbuch, Schulung und Verträgen. Danach melden sich nach und nach Franchisenehmer: Sie eröffnen eigene Filialen auf eigene Kosten und zahlen dir Gebühren.</p><div class="kv"><span>Kosten</span><span>'+eur(c)+' einmalig</span><span>Gebühr je Franchisenehmer</span><span>ca. '+eur(fee)+' im Monat nach Steuern</span><span>Höchstens</span><span>'+BIZ_FR_MAX+' Franchisenehmer je eigene Filiale</span></div><p class="dn">Werbung (Ausbau) lockt schneller neue Partner an. Ab und zu gibt einer auf.</p><p class="derr" id="derr"></p>',
    [{t:'Abbrechen'},{t:'Marke gründen',pri:true,f:()=>{const e=bizFrStart(S,id);if(e){derr(e);return false;}dirty=true;saveLocal();toast('Marke gegründet.');commit();}}]);}
