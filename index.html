@@ -309,7 +309,7 @@ button.chip:hover{background:var(--accent-soft);color:var(--accent)}
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f3f5f9" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0b1020" media="(prefers-color-scheme: dark)">
-<script>window.__web="126";</script>
+<script>window.__web="127";</script>
 </head>
 <body>
 <div class="wrap">
@@ -2059,7 +2059,8 @@ function selfStop(S){if(!S.self)return 'Du bist nicht selbstständig.';if(fiLead
 /* ---------- Eigene Firma (Aufgabe 8b-8d): Mitarbeiter bringen Umsatz über ihre Kosten hinaus, Gewinn schwankt.
    Ohne GmbH höchstens 4 Mitarbeiter. Krise und Boom je 6 Monate. GmbH: Insolvenz nach 3 Monaten Verlust bei leerem Konto. ---------- */
 const FI_MAX0=4,FI_MAX=40,FI_HIRE=1500,FI_GMBH=3000,FI_CAP=25000;
-function fiCost(S){return 3400*lv(S).gehalt/3200*S.raise;}
+function fiLf(S){const F=S.firm;return F&&F.lf>0?F.lf*S.inf:lv(S).gehalt/3200*S.raise;}
+function fiCost(S){return 3400*fiLf(S);}
 // Ausbaustufen über 40 Mitarbeiter: Mittelstand (bis 250) und Konzern (bis 2.000), feste Marge durch Führungsstruktur
 const FI_STAGE=[{n:'Kleinbetrieb',max:40},{n:'Mittelstand',max:250,cost:150000,need:30,mg:1.18,d:'Führungsebene mit Abteilungsleitern, Personalabteilung und Controlling.'},{n:'Konzern',max:2000,cost:2000000,need:200,mg:1.15,d:'Umwandlung in eine AG mit Vorstand und Aufsichtsrat, mehrere Standorte.'}];
 function fiMargin(S){const F=S.firm,l=F.lvl||0;return l?FI_STAGE[l].mg:1.3-0.004*Math.min(F.emp,40);}
@@ -2093,7 +2094,7 @@ function akBuy(S,pp){const F=S.firm;if(!F||!F.ipo)return 'Du hast keine Aktien d
 function akSellCalc(S,frac){const F=S.firm,n=frac>=1?F.own:Math.round(F.own*frac),g=n*F.kurs;return {n,g,fee:g*AK_FEE,net:g*(1-AK_FEE)};}
 function akSell(S,frac){const e=akSellOk(S);if(e)return e;if(!(frac>0))return 'Ungültige Menge.';const F=S.firm,c=akSellCalc(S,frac);if(c.n<1)return 'Zu wenige Aktien.';
   S.cash+=c.net;addL(S,'Verkauf eigener AG-Aktien',c.net);F.own-=c.n;F.share=F.own/F.tot;
-  if(F.own<1){S.firm=null;logMsg(S,'Alle Aktien deiner AG verkauft für '+Math.round(c.net)+' € (nach 1 % Kosten). Der Konzern gehört jetzt ganz den Anlegern.'+(S.self?' Du arbeitest allein weiter.':''));}
+  if(F.own<1){S.firm=null;logMsg(S,'Alle Aktien deiner AG verkauft für '+Math.round(c.net)+' € (nach 1 % Kosten). Der Konzern gehört jetzt ganz den Anlegern.'+(S.self&&!S._fiSw?' Du arbeitest allein weiter.':''));}
   else logMsg(S,c.n.toLocaleString('de-DE')+' Aktien deiner AG verkauft für '+Math.round(c.net)+' € (nach 1 % Kosten). Dir gehören noch '+(F.share*100).toFixed(1).replace('.',',')+' %.');return null;}
 function fiOwnF(S){return S.firm&&!S.firm.gf?Math.max(0.3,1-0.07*S.firm.emp):1;}
 function fiLead(S){return !!S.firm&&!S.firm.gf;}
@@ -2101,14 +2102,14 @@ function fiLead(S){return !!S.firm&&!S.firm.gf;}
 function fiOwnPay(S){return fiLead(S)&&!S.retired?fiGfCost(S):0;}
 function fiAvg(S){const h=S.firm.prof;return h.length?h.reduce((a,b)=>a+b,0)/h.length:fiExp(S);}
 function fiExp(S){const F=S.firm;return F.emp*fiCost(S)*(fiMargin(S)*(F.inv>0?0.85:1)*fiFill(S)-1)-fiGfCost(S);}
-function fiGfCost(S,rev){const F=S.firm,lf=lv(S).gehalt/3200*S.raise;if(rev==null)rev=F?F.emp*fiCost(S)*fiMargin(S)*(F.inv>0?0.85:1)*fiFill(S):0;const b=300000*lf;return 1500*lf+0.08*Math.min(rev,b)+0.01*Math.max(0,rev-b);}
+function fiGfCost(S,rev){const F=S.firm,lf=fiLf(S);if(rev==null)rev=F?F.emp*fiCost(S)*fiMargin(S)*(F.inv>0?0.85:1)*fiFill(S):0;const b=300000*lf;return 1500*lf+0.08*Math.min(rev,b)+0.01*Math.max(0,rev-b);}
 function fiValue(S){const F=S.firm;if(!F)return 0;if(F.ipo&&F.kurs>0)return F.kurs*F.own;return ((F.gmbh?F.cap:0)+Math.max(0,fiAvg(S)*12*3))*(F.ipo?F.share:1);}
 function fiNew(S,o){const F=Object.assign({since:S.day,emp:0,hires:[],gmbh:false,gf:false,cap:0,prof:[],crisis:0,boom:0,neg:0,inv:0,kind:'eigen',last:null,lvl:0,ipo:false,share:1},o||{});if(!(F.mkt>0))F.mkt=fiMktGen(S,F);return F;}
 // Marktgröße: Für wie viele Mitarbeiter reichen die Aufträge (Grundwert, Ausbaustufen erweitern die Reichweite). Zufällig je Firma, meist 20 bis 150,
 // selten mehrere Hundert. Wer mehr Leute hat, als Aufträge da sind, zahlt sie ohne Umsatz. Der Markt schwankt langsam, Krisen können ihn dauerhaft schrumpfen lassen.
 const FI_REACH=[1,1.6,2.5];
 function fiHash(n){n=Math.imul(n^(n>>>16),0x45d9f3b);n=Math.imul(n^(n>>>16),0x45d9f3b);return ((n^(n>>>16))>>>0)/4294967296;}
-function fiMktGen(S,F){const k=(S.uid||1)*7919+(S.day|0)*31+(S.P||0)*101+(S.resets||0)*17,u1=Math.max(1e-9,fiHash(k)),u2=fiHash(k+1),z=Math.sqrt(-2*Math.log(u1))*Math.cos(2*Math.PI*u2);
+function fiMktGen(S,F){const k=(S.uid||1)*7919+(S.day|0)*31+(S.P||0)*101+(S.resets||0)*17+((F&&F.nr)|0)*977,u1=Math.max(1e-9,fiHash(k)),u2=fiHash(k+1),z=Math.sqrt(-2*Math.log(u1))*Math.cos(2*Math.PI*u2);
   const r=FI_REACH[(F&&F.lvl)||0],min=F&&F.emp>0?F.emp*(1.15+0.5*fiHash(k+2))/r:8;return Math.round(Math.max(min,Math.min(3000,60*Math.exp(1.2*z))));}
 function fiCapN(S){const F=S.firm;return F?Math.max(1,Math.round(F.mkt*FI_REACH[F.lvl||0])):0;}
 // Schätzung der Auftragslage (so sieht sie der Spieler): liegt bis zu 20 % daneben, wird etwa einmal im Jahr neu eingeschätzt
@@ -2141,9 +2142,27 @@ function fiFound(S,n,kredit){
   logMsg(S,'Firma gegründet: GmbH mit '+n+' Mitarbeitern im Bereich '+JBY[S.job.id].f+'.'+(c.loan?' Gründerkredit: '+Math.round(c.loan)+' € über 10 Jahre.':''));return null;}
 function fiGfOk(S){const F=S.firm;if(!F)return 'Du hast keine Firma.';if(!F.gmbh)return 'Einen Geschäftsführer gibt es nur in einer GmbH.';if(F.emp<3)return 'Dafür braucht die Firma mindestens 3 Mitarbeiter.';return null;}
 function fiGf(S,on){const F=S.firm;if(on){const e=fiGfOk(S);if(e)return e;if(F.gf)return 'Es gibt schon einen Geschäftsführer.';F.gf=true;logMsg(S,'Ein Geschäftsführer leitet jetzt deine Firma. Du kannst wieder voll selbst arbeiten oder eine Stelle annehmen.');return null;}
-  if(!F||!F.gf)return 'Es gibt keinen Geschäftsführer.';if(F.ipo)return 'Nach dem Börsengang leitet der Vorstand.';if(!S.self)return 'Um die Firma wieder selbst zu leiten, musst du selbstständig sein.';F.gf=false;logMsg(S,'Du leitest deine Firma wieder selbst.');return null;}
+  if(!F||!F.gf)return 'Es gibt keinen Geschäftsführer.';if(S._fiSw)return 'Eine weitere Firma braucht immer einen Geschäftsführer. Selbst leiten kannst du nur deine erste Firma.';if(F.ipo)return 'Nach dem Börsengang leitet der Vorstand.';if(!S.self)return 'Um die Firma wieder selbst zu leiten, musst du selbstständig sein.';F.gf=false;logMsg(S,'Du leitest deine Firma wieder selbst.');return null;}
 function fiSellPrice(S){return fiValue(S)*(S.firm&&S.firm.ipo?1-AK_FEE:0.9);}
-function fiSell(S){const F=S.firm;if(!F)return 'Du hast keine Firma.';if(F.ipo)return akSell(S,1);const v=fiSellPrice(S);S.cash+=v;addL(S,'Firmenverkauf',v);S.firm=null;logMsg(S,(F.ipo?'Restliche Aktien verkauft für '+Math.round(v)+' € (nach 3 % Kosten).':'Firma verkauft für '+Math.round(v)+' € (nach 10 % Kosten für Berater und Notar).')+(S.self?' Du arbeitest allein weiter.':''));return null;}
+function fiSell(S){const F=S.firm;if(!F)return 'Du hast keine Firma.';if(F.ipo)return akSell(S,1);const v=fiSellPrice(S);S.cash+=v;addL(S,'Firmenverkauf',v);S.firm=null;logMsg(S,(F.ipo?'Restliche Aktien verkauft für '+Math.round(v)+' € (nach 3 % Kosten).':'Firma verkauft für '+Math.round(v)+' € (nach 10 % Kosten für Berater und Notar).')+(S.self&&!S._fiSw?' Du arbeitest allein weiter.':''));return null;}
+// V127: mehrere Firmen. S.firm ist die erste (die du selbst leiten kannst), S.firms die weiteren (immer mit Geschäftsführer).
+// fiAt tauscht S.firm kurz gegen eine weitere Firma, damit alle fi*/ak*-Funktionen unverändert für sie gelten.
+const FI_MORE=4,FI_TEAM2=[5,10,25];
+const FI_BR=[{id:'it',n:'IT-Dienstleister',lf:1.3},{id:'ber',n:'Unternehmensberatung',lf:1.4},{id:'ing',n:'Ingenieurbüro',lf:1.3},{id:'agen',n:'Werbeagentur',lf:1.05},
+ {id:'hand',n:'Handwerksbetrieb',lf:0.95},{id:'bau',n:'Bauunternehmen',lf:1.0},{id:'log',n:'Spedition',lf:0.9},{id:'rein',n:'Gebäudereinigung',lf:0.7}];
+function fiAt(S,F,fn){const o=S.firm,w=S._fiSw;S.firm=F;S._fiSw=1;let r,n;try{r=fn();}finally{n=S.firm;S.firm=o;if(w)S._fiSw=w;else delete S._fiSw;
+  if(n!==F){const i=S.firms.indexOf(F);if(i>=0){if(n)S.firms[i]=n;else S.firms.splice(i,1);}}}return r;}
+function fiSum(S,fn){return (S.firms||[]).slice().reduce((a,F)=>a+(fiAt(S,F,fn)||0),0);}
+function fiAllN(S){return (S.firm?1:0)+(S.firms||[]).length;}
+function fiFound2Ok(S){if(S.retired)return 'Du bist in Rente.';if(!S.firm)return 'Gründe zuerst deine erste Firma (als Selbstständiger).';if((S.firms||[]).length>=FI_MORE)return 'Mehr als '+(FI_MORE+1)+' Firmen gehen nicht.';if(S.exp<SELF_EXP)return 'Dafür brauchst du '+SELF_EXP/12+' Jahre Berufserfahrung.';return null;}
+function fiFound2Calc(S,br,n){const b=FI_BR.find(x=>x.id===br)||FI_BR[0],eq=FI_EQ*n*b.lf;const cost=(FI_GMBH+FI_CAP+eq)*S.inf;return {b,cost,eq:eq*S.inf};}
+function fiFound2(S,br,n){const e=fiFound2Ok(S);if(e)return e;if(!FI_BR.some(x=>x.id===br))return 'Branche unbekannt.';if(!FI_TEAM2.includes(n))return 'Teamgröße nicht möglich.';
+  const c=fiFound2Calc(S,br,n);if(c.cost>S.cash+1e-6)return 'Du brauchst '+Math.round(c.cost)+' € eigenes Geld.';
+  S.cash-=c.cost;addL(S,'Firma: GmbH-Gründung',-FI_GMBH*S.inf);addL(S,'Firma: Stammkapital',-FI_CAP*S.inf);addL(S,'Firma: Ausstattung',-c.eq);
+  S.firms=S.firms||[];S.fiNr=(S.fiNr||0)+1;const same=[S.firm].concat(S.firms).filter(F=>F&&(F.name||'').startsWith(c.b.n)).length;
+  const F=fiNew(S,{nr:S.fiNr,br:c.b.id,lf:c.b.lf,name:c.b.n+(same?' '+(same+1):''),gmbh:true,gf:true,cap:FI_CAP*S.inf,emp:n,hires:Array(n).fill(S.day)});
+  S.firms.push(F);logMsg(S,'Weitere Firma gegründet: '+F.name+' (GmbH mit '+n+' Mitarbeitern). Ein Geschäftsführer leitet sie.');return null;}
+function fiNorm(S,f,day){const G=f&&isFinite(f.emp)?Object.assign(fiNew({day:day}),f,{hires:(Array.isArray(f.hires)?f.hires.filter(isFinite):[]).concat(Array(Math.max(0,(f.emp|0)-(Array.isArray(f.hires)?f.hires.filter(isFinite).length:0))).fill(0)).slice(0,f.emp|0),prof:Array.isArray(f.prof)?f.prof.filter(isFinite):[]}):null;if(!G)return null;return fiAt(S,G,()=>{if(!(f.mkt>0))G.mkt=fiMktGen(S,G);if(G.ipo){const F=G;if(!(F.tot>0))F.tot=akTot(S);if(!(F.own>0))F.own=Math.round((F.share>0?F.share:0.5)*F.tot);F.share=F.own/F.tot;if(!(F.kurs>0)){F.kurs=Math.max(0.01,fiFairK(S));F.kurs0=F.kurs;}if(!(F.kurs0>0))F.kurs0=F.kurs;if(!(F.k1>0))F.k1=F.kurs;if(!isFinite(F.ipoDay))F.ipoDay=(day||0)-AK_LOCK;if(!isFinite(F.mref))F.mref=null;}return S.firm;});}
 function fiMonth(S,money,rnd){
   const F=S.firm;if(!F)return;
   if(!F.gf&&(!S.self||S.retired)){F.gf=true;logMsg(S,'Niemand leitet die Firma: Ein Geschäftsführer übernimmt.');}
@@ -2162,7 +2181,7 @@ function fiMonth(S,money,rnd){
   if(rev)money('Firma: Umsatz',rev);if(cost)money('Firma: Personalkosten',-cost);if(gf)money('Firma: Geschäftsführer',-gf);if(own)money('Firma: dein Geschäftsführergehalt',-own);
   const p=rev-cost-gf-own;F.last={rev,cost,gf,own,p};F.prof.push(p);if(F.prof.length>12)F.prof.shift();
   if(fiLead(S))S.rest=Math.max(0,S.rest-Math.min(3,0.2*F.emp));
-  if(F.gmbh&&p<0&&S.cash<0){F.neg++;if(F.neg>=3){logMsg(S,'Insolvenz: Deine GmbH ist zahlungsunfähig und wird aufgelöst. Das Stammkapital ist verloren, du haftest aber nicht privat.'+(S.self?' Du arbeitest allein weiter.':''));S.firm=null;}}else F.neg=0;
+  if(F.gmbh&&p<0&&S.cash<0){F.neg++;if(F.neg>=3){logMsg(S,'Insolvenz: Deine GmbH ist zahlungsunfähig und wird aufgelöst. Das Stammkapital ist verloren, du haftest aber nicht privat.'+(S.self&&!S._fiSw?' Du arbeitest allein weiter.':''));S.firm=null;}}else F.neg=0;
 }
 function selfFlux(S,rnd){const r=rnd();return r<0.1?0.55+0.2*rnd():(r>0.9?1.25+0.2*rnd():0.85+0.3*rnd());}
 const INS=[
@@ -2443,10 +2462,10 @@ function gehaltNow(S){
 function parts(S){
   const p={cash:Math.max(0,S.cash),gk:S.gk||0,vor:0,bank:0,sec:0,gold:0,sach:0,re:0,biz:0,debt:Math.max(0,-S.cash)};
   BANKS.forEach(b=>{p.bank+=S.tg[b.id]||0;});if(S.fv)p.bank+=S.fv.bal||0;if(S.hk)p.bank+=Math.max(0,S.hk.bal||0);S.promoAcc.forEach(a=>{p.bank+=a.bal;});S.fest.forEach(f=>{p.bank+=f.amt;});
-  for(const id in S.hold){const v=S.hold[id].units*S.prices[id].p;if(id==='gold')p.gold+=v;else p.sec+=v;}p.sec+=vgValue(S)+(S.firm&&S.firm.ipo?fiValue(S):0);
+  for(const id in S.hold){const v=S.hold[id].units*S.prices[id].p;if(id==='gold')p.gold+=v;else p.sec+=v;}p.sec+=vgValue(S)+(S.firm&&S.firm.ipo?fiValue(S):0)+fiSum(S,()=>S.firm.ipo?fiValue(S):0);
   S.sach.forEach(it=>{p.sach+=sachValue(S,it);});
   S.props.forEach(x=>{p.re+=propValue(x,S);if(x.loan)p.debt+=x.loan.bal;});p.debt+=S.lombard.bal;S.loans.forEach(l=>{p.debt+=l.bal;});
-  BIZ.forEach(b=>{p.biz+=bizValue(S,b);});p.biz+=bizFrValue(S);p.biz+=(S.firm&&S.firm.ipo?0:fiValue(S))+suValue(S);
+  BIZ.forEach(b=>{p.biz+=bizValue(S,b);});p.biz+=bizFrValue(S);p.biz+=(S.firm&&S.firm.ipo?0:fiValue(S))+fiSum(S,()=>S.firm.ipo?0:fiValue(S))+suValue(S);
   p.vor=S.vor.bav.bal+S.vor.priv.bal+S.vor.avd.bal;
   p.nw=p.gk+p.vor+p.cash+p.bank+p.sec+p.gold+p.sach+p.re+p.biz-p.debt;return p;
 }
@@ -2575,7 +2594,7 @@ function normalize(o){
   if(!Number.isFinite(x.rent0)){const e=regT(x.lage,x.type);x.rent0=e&&!PT[x.type].norent?Math.round((PT[x.type].fix?e[0]:x.m2*e[0])*(x.q||1)*e[1]/12):0;}
   if(x.ml&&!Number.isFinite(x.ml.r))x.ml=null;if(Array.isArray(x.units))x.units.forEach(u=>{if(u.ml&&!Number.isFinite(u.ml.r))u.ml=null;});});S.offers=(o.offers&&o.offers.length)?o.offers:[];S.promos=o.promos||[];S.promoAcc=o.promoAcc||[];S.lombard=Object.assign({bal:0},o.lombard||{});S.loans=o.loans||[];
   if(Array.isArray(S.loans))S.loans.forEach(l=>{if(l.sid&&!S.sach.some(it=>it.uid===l.sid))delete l.sid;if(l.pid&&!S.props.some(x=>x.uid===l.pid))delete l.pid;});
-  S.partner=o.partner||null;S.plans=(o.plans||[]).filter(p=>TBY[p.id]&&p.amt>0).map(p=>({id:p.id,amt:p.amt,up:p.up>0?Math.min(25,p.up):0,next:isFinite(p.next)?p.next:(o.day||0)+360}));S.homeUp=o.homeUp>=1?Math.min(2.5,o.homeUp):1;S.divAll=o.divAll>0?o.divAll:0;S.ly={};if(o.ly&&typeof o.ly==='object'){for(const k in o.ly)if(isFinite(o.ly[k]))S.ly[k]=o.ly[k];}S.pop=o.pop!==false;S.yrPop=false;S.firm=o.firm&&isFinite(o.firm.emp)?Object.assign(fiNew({day:o.day||0}),o.firm,{hires:(Array.isArray(o.firm.hires)?o.firm.hires.filter(isFinite):[]).concat(Array(Math.max(0,(o.firm.emp|0)-(Array.isArray(o.firm.hires)?o.firm.hires.filter(isFinite).length:0))).fill(0)).slice(0,o.firm.emp|0),prof:Array.isArray(o.firm.prof)?o.firm.prof.filter(isFinite):[]}):null;if(S.firm&&!(o.firm.mkt>0))S.firm.mkt=fiMktGen(S,S.firm);if(S.firm&&S.firm.ipo){const F=S.firm;if(!(F.tot>0))F.tot=akTot(S);if(!(F.own>0))F.own=Math.round((F.share>0?F.share:0.5)*F.tot);F.share=F.own/F.tot;if(!(F.kurs>0)){F.kurs=Math.max(0.01,fiFairK(S));F.kurs0=F.kurs;}if(!(F.kurs0>0))F.kurs0=F.kurs;if(!(F.k1>0))F.k1=F.kurs;if(!isFinite(F.ipoDay))F.ipoDay=(o.day||0)-AK_LOCK;if(!isFinite(F.mref))F.mref=null;}S.self=o.self&&isFinite(o.self.since)?{since:o.self.since,f:isFinite(o.self.f)?o.self.f:1}:null;S.agen=o.agen&&isFinite(o.agen.next)?{since:o.agen.since||0,next:o.agen.next,n:o.agen.n||0}:null;S.dec=(o.dec&&DECT[o.dec.type]&&Array.isArray(o.dec.opts)&&isFinite(o.dec.until))?o.dec:null;S.sellMode=SELLM.some(x=>x[0]===o.sellMode)?o.sellMode:'fifo';S.rpts=o.rpts!=null?o.rpts:1;S.vor={bav:Object.assign({bal:0,mon:0},o.vor&&o.vor.bav),priv:Object.assign({bal:0,mon:0},o.vor&&o.vor.priv),avd:Object.assign({bal:0,mon:0,k:'std',ein:0,zul:0,px:0},o.vor&&o.vor.avd)};
+  S.partner=o.partner||null;S.plans=(o.plans||[]).filter(p=>TBY[p.id]&&p.amt>0).map(p=>({id:p.id,amt:p.amt,up:p.up>0?Math.min(25,p.up):0,next:isFinite(p.next)?p.next:(o.day||0)+360}));S.homeUp=o.homeUp>=1?Math.min(2.5,o.homeUp):1;S.divAll=o.divAll>0?o.divAll:0;S.ly={};if(o.ly&&typeof o.ly==='object'){for(const k in o.ly)if(isFinite(o.ly[k]))S.ly[k]=o.ly[k];}S.pop=o.pop!==false;S.yrPop=false;S.firms=[];S.firm=fiNorm(S,o.firm,o.day||0);S.firms=(Array.isArray(o.firms)?o.firms:[]).map(f=>fiNorm(S,f,o.day||0)).filter(F=>F&&F.gf).slice(0,FI_MORE);S.fiNr=o.fiNr|0;S.self=o.self&&isFinite(o.self.since)?{since:o.self.since,f:isFinite(o.self.f)?o.self.f:1}:null;S.agen=o.agen&&isFinite(o.agen.next)?{since:o.agen.since||0,next:o.agen.next,n:o.agen.n||0}:null;S.dec=(o.dec&&DECT[o.dec.type]&&Array.isArray(o.dec.opts)&&isFinite(o.dec.until))?o.dec:null;S.sellMode=SELLM.some(x=>x[0]===o.sellMode)?o.sellMode:'fifo';S.rpts=o.rpts!=null?o.rpts:1;S.vor={bav:Object.assign({bal:0,mon:0},o.vor&&o.vor.bav),priv:Object.assign({bal:0,mon:0},o.vor&&o.vor.priv),avd:Object.assign({bal:0,mon:0,k:'std',ein:0,zul:0,px:0},o.vor&&o.vor.avd)};
   for(const k of VK){const v=S.vor[k];if(!(v.bal>=0)||!isFinite(v.bal))v.bal=0;if(!(v.mon>=0))v.mon=0;if(VORUPK.includes(k)){v.up=VORUP.includes(v.up)?v.up:0;if(!isFinite(v.next))v.next=(S.day||0)+360;}else{delete v.up;delete v.next;}}if(!AVDK[S.vor.avd.k])S.vor.avd.k='std';if(!(S.vor.avd.px>0))S.vor.avd.px=S.prices&&S.prices.etf?S.prices.etf.p:0;
   S.vorS=(o.vorS&&isFinite(o.vorS.own)&&isFinite(o.vorS.fund))?{own:o.vorS.own,fund:o.vorS.fund}:{own:VK.reduce((t,k)=>t+S.vor[k].bal,0),fund:0};
   S.vorH=Array.isArray(o.vorH)?o.vorH.filter(e=>Array.isArray(e)&&e.length===4&&e.every(isFinite)).slice(-720):[];S.retired=!!o.retired;
@@ -2802,7 +2821,7 @@ function debtService(S){if(S._iv)return ivCover(S).ds;let s=leaseTotal(S)+lombIn
 function loanCapacity(S){
   if(S._iv)return Math.max(0,ivCover(S).rent);
   let rent=0;S.props.forEach(x=>{if(x.iv)return;if(!x.own&&!x.bz&&x.vac<=0)rent+=rentNow(x,S);if(pachtOn(S,x))rent+=x.pacht.r;});
-  let biz=0;BIZ.forEach(b=>{biz+=(S.biz[b.id]||0)*bizProf(S,b);});if(S.firm)biz+=Math.max(0,fiAvg(S));
+  let biz=0;BIZ.forEach(b=>{biz+=(S.biz[b.id]||0)*bizProf(S,b);});if(S.firm)biz+=Math.max(0,fiAvg(S));biz+=fiSum(S,()=>Math.max(0,fiAvg(S)));
   return (lv(S).limit+(S.upg.bonitaet?0.1:0))*(gehaltNow(S)+0.7*rent+0.5*biz);
 }
 function buyCalc(S,x,ek,o){
@@ -3662,7 +3681,7 @@ function monthly(S,rnd){
   money('Lebenshaltung',-L.alltag*S.inf*famMul(S));
   famVor(S,money,L);
   pruneDust(S);
-  fiMonth(S,money,rnd);delete S._ownPay;
+  fiMonth(S,money,rnd);delete S._ownPay;if(S.firms&&S.firms.length)S.firms.slice().forEach(F=>fiAt(S,F,()=>fiMonth(S,money,rnd)));
   agMonth(S,money,rnd);
   decStep(S,rnd);
   if(!ownProp(S))money('Wohnungsmiete',-homeRent(S));
@@ -3913,7 +3932,7 @@ function recMonth(S,nw){const l=S.led.last||{};
   if(S.props.length)recSet(S,'props',S.props.length,'max');
   const r=(l['Mieteinnahmen']||0)+(l['Pachteinnahmen']||0);if(r>0)recSet(S,'rent',r,'max');
   let f=0;for(const k in S.biz||{})f+=S.biz[k]||0;if(f)recSet(S,'biz',f,'max');
-  if(S.firm&&S.firm.emp)recSet(S,'firm',S.firm.emp,'max');
+  if(fiAllN(S)){const n=(S.firm?S.firm.emp:0)+(S.firms||[]).reduce((a,F)=>a+F.emp,0);if(n)recSet(S,'firm',n,'max');}
   if(S.yrs&&S.yrs.length&&!(S.rrec&&S.rrec.year))for(let i=0;i<S.yrs.length;i++){const p=i?S.yrs[i-1].nw:(S.startNw||0);recSet(S,'year',S.yrs[i].nw-p,'max');}}
 
 /* ---------- Ruhestand ---------- */
@@ -3938,7 +3957,7 @@ function pc(x,d){d=d==null?2:d;return x.toLocaleString('de-DE',{minimumFractionD
 
 const KEY='vermoegensfabrik-v2';
 // Versionsnummer, bei jeder Veröffentlichung hochzählen (bauen-web.sh liest sie hier)
-const VF_VERSION='126';
+const VF_VERSION='127';
 const $=id=>document.getElementById(id);
 const TAB_ICONS={
   uebers:'M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z',
@@ -3984,7 +4003,9 @@ function priceFmt(p){return p<1?p.toLocaleString('de-DE',{minimumFractionDigits:
 function dlg(title,body,actions,after){
   $('mt').textContent=title;$('mb').innerHTML=body;
   const a=$('ma');a.textContent='';
+  const fk=S&&S._fiSw?fiK:-1;
   actions.forEach(x=>{
+    if(fk>=0&&x.f){const f0=x.f;x.f=()=>fiUi(f0,fk);}
     const el=document.createElement('button');el.type='button';el.textContent=x.t;if(x.pri)el.className='pri';
     el.addEventListener('click',()=>{if(x.f){const r=x.f();if(r===false)return;}closeDlg();});
     a.appendChild(el);
@@ -4267,8 +4288,8 @@ function vWp(){
   const own=SEC.filter(t=>S.hold[t.id]);
   let h='';
   if(S.plans.length){h+='<section><h2>Sparpläne</h2>'+S.plans.map(p=>'<div class="row"><div><span class="name">'+TBY[p.id].name+'</span></div><div class="val">'+eur(p.amt)+'</div><div class="meta">Wird jeden Monat automatisch gekauft, wenn genug Geld da ist.'+(p.up>0?' Die Rate steigt jedes Jahr um '+p.up+' %.':'')+'</div><div class="acts"><button class="btn" data-act="plan" data-id="'+p.id+'">Ändern</button><button class="btn" data-act="planstop" data-id="'+p.id+'">Beenden</button></div></div>').join('')+'<p class="note pad">Summe: '+eur(S.plans.reduce((a,p)=>a+p.amt,0))+' im Monat.</p></section>';}
-  const ak=S.firm&&S.firm.ipo;
-  if(own.length||S.hold.gold||ak){h+='<section><h2>Mein Depot</h2>';if(ak)h+=akRow();own.forEach(t=>{h+=secRow(t,true);});if(S.hold.gold)h+=secRow(GOLD,true);h+='</section>';}
+  const ak=S.firm&&S.firm.ipo,ak2=(S.firms||[]).map((F,k)=>[F,k]).filter(a=>a[0].ipo);
+  if(own.length||S.hold.gold||ak||ak2.length){h+='<section><h2>Mein Depot</h2>';if(ak)h+=akRow();ak2.forEach(a=>{h+=fiAt(S,a[0],()=>akRow()).replace(/data-act="/g,'data-fi="'+a[1]+'" data-act="');});own.forEach(t=>{h+=secRow(t,true);});if(S.hold.gold)h+=secRow(GOLD,true);h+='</section>';}
   h+=divSection();
   h+='<section><h2>Wertpapiere</h2><div class="chips" style="margin-bottom:8px">'+
    WCATS.map(c=>'<button type="button" class="chip" data-act="selwp" data-id="'+c[0]+'" style="'+(wsel.cat===c[0]?'background:var(--ink);color:var(--bg)':'')+'">'+c[1]+'</button>').join('')+'</div>';
@@ -4764,10 +4785,22 @@ function firmSec(){
   if(!F.gmbh)h+='<div class="row"><div><span class="name">GmbH gründen</span></div><div class="val">'+eur((FI_GMBH+FI_CAP)*S.inf)+'</div><div class="meta">Notar und Handelsregister '+eur(FI_GMBH*S.inf)+', dazu '+eur(FI_CAP*S.inf)+' Stammkapital, das in der Firma bleibt (zählt zum Firmenwert). Erlaubt bis '+FI_MAX+' Mitarbeiter, du haftest nicht mehr privat.</div><div class="acts"><button class="btn pri" data-act="figmbh">Gründen</button></div></div>';
   if(F.inv>0)h+='<div class="row"><div><span class="name">Modernisieren</span></div><div class="val">'+eur(F.inv*S.inf)+'</div><div class="meta">Maschinen, Technik und Räume sind veraltet: Bis zur Modernisierung macht die Firma 15 % weniger Umsatz.</div><div class="acts"><button class="btn pri" data-act="fimod">Modernisieren</button></div></div>';
   const ge=fiGfOk(S);
-  if(!F.ipo)h+='<div class="row"><div><span class="name">Geschäftsführer</span></div><div class="val">'+(F.gf?'eingesetzt':'du selbst')+'</div><div class="meta">'+(F.gf?'Er leitet die Firma für ca. '+eur(fiGfCost(S))+' im Monat (Grundgehalt plus 8&nbsp;% vom Umsatz, bei großem Umsatz weniger). Fehlen Aufträge, baut er nach und nach Stellen ab. Du kannst selbst voll arbeiten oder eine Stelle annehmen.':'Du führst selbst und bekommst dafür das Geschäftsführergehalt von ca. '+eur(fiGfCost(S))+' im Monat. Ein fremder Geschäftsführer kostet genauso viel. Dafür bist du frei: voller eigener Verdienst als Selbstständiger, oder zurück in eine Anstellung.'+(ge?'<br>'+ge:''))+'</div><div class="acts">'+(F.gf?'<button class="btn" data-act="figfoff"'+(S.self?'':' disabled')+'>Selbst leiten</button>':'<button class="btn pri" data-act="figf"'+(ge?' disabled':'')+'>Einsetzen</button>')+'</div></div>';
+  if(!F.ipo)h+='<div class="row"><div><span class="name">Geschäftsführer</span></div><div class="val">'+(F.gf?'eingesetzt':'du selbst')+'</div><div class="meta">'+(F.gf?'Er leitet die Firma für ca. '+eur(fiGfCost(S))+' im Monat (Grundgehalt plus 8&nbsp;% vom Umsatz, bei großem Umsatz weniger). Fehlen Aufträge, baut er nach und nach Stellen ab. Du kannst selbst voll arbeiten oder eine Stelle annehmen.':'Du führst selbst und bekommst dafür das Geschäftsführergehalt von ca. '+eur(fiGfCost(S))+' im Monat. Ein fremder Geschäftsführer kostet genauso viel. Dafür bist du frei: voller eigener Verdienst als Selbstständiger, oder zurück in eine Anstellung.'+(ge?'<br>'+ge:''))+'</div><div class="acts">'+(F.gf?(S._fiSw?'':'<button class="btn" data-act="figfoff"'+(S.self?'':' disabled')+'>Selbst leiten</button>'):'<button class="btn pri" data-act="figf"'+(ge?' disabled':'')+'>Einsetzen</button>')+'</div></div>';
   if(F.ipo)h+='<div class="row"><div><span class="name">Deine Aktien</span></div><div class="val pos">'+eur(fiValue(S))+'</div><div class="meta">Deine '+F.own.toLocaleString('de-DE')+' Aktien liegen im Depot auf der Seite Wertpapiere. Dort siehst du den Kurs und kannst Teile oder alle verkaufen'+(akLock(S)>0?' (Sperrfrist noch '+akLock(S)+' Tage)':'')+'.</div><div class="acts"><button class="btn" data-act="gowp">Zum Depot</button></div></div>';
   else h+='<div class="row"><div><span class="name">Firma verkaufen</span></div><div class="val pos">'+eur(fiSellPrice(S))+'</div><div class="meta">Firmenwert abzüglich 10 % für Berater und Notar, oder Verkauf an Investoren. Kredite bleiben bei dir.</div><div class="acts"><button class="btn" data-act="fisell">Verkaufen</button></div></div>';
+  if(S._fiSw)h+='<p class="note">Eine weitere Firma leitet immer ein Geschäftsführer. Ihr Gewinn kommt jeden Monat auf dein Konto.</p>';
+  else{const e2=fiFound2Ok(S);h+='<div class="row"><div><span class="name">Weitere Firma gründen</span></div><div class="val">'+fiAllN(S)+' von '+(FI_MORE+1)+'</div><div class="meta">Eine weitere GmbH in einer Branche deiner Wahl, mit 5, 10 oder 25 Mitarbeitern. Ein Geschäftsführer leitet sie, du bekommst den Gewinn. Sie steht dann als eigener Abschnitt daneben.'+(e2?'<br>'+e2:'')+'</div><div class="acts"><button class="btn pri" data-act="found2"'+(e2?' disabled':'')+'>Gründen</button></div></div>';}
   return h+'</div></section>';
+}
+function openFound2(){
+  const r=(nm,v,t,c)=>'<label class="chk"><input type="radio" name="'+nm+'" value="'+v+'"'+(c?' checked':'')+'> <span>'+t+'</span></label>';
+  const get=()=>({br:$('f2b').value,n:+document.querySelector('#modal input[name=f2n]:checked').value});
+  const sum=()=>{const g=get(),c=fiFound2Calc(S,g.br,g.n),pe=3400*c.b.lf*S.inf,pp=g.n*pe*(1.3-0.004*g.n-1);
+    return 'Kosten '+eur(c.cost)+' (Notar '+eur(FI_GMBH*S.inf)+', Stammkapital '+eur(FI_CAP*S.inf)+', Ausstattung '+eur(c.eq)+')'+(c.cost>S.cash?' <span class="neg">(so viel hast du nicht)</span>':'')+'.<br>Jeder Mitarbeiter kostet '+eur(pe)+' im Monat. Gewinn später ca. '+eur(pp)+' im Monat vor Geschäftsführer, wenn die Aufträge reichen.<br><span class="neg">Anlaufzeit: In den ersten 3 Monaten bringen neue Leute erst den halben Umsatz.</span>';};
+  dlg('Weitere Firma gründen','<p class="dn">Du gründest eine weitere GmbH. Ein Geschäftsführer leitet sie von Anfang an, an deinem Beruf ändert sich nichts.</p><label class="dl" for="f2b">Branche</label><select id="f2b" class="inp">'+
+   FI_BR.map(b=>'<option value="'+b.id+'">'+b.n+' · '+eur(3400*b.lf*S.inf)+' je Mitarbeiter</option>').join('')+'</select><div class="dl">Mitarbeiter</div>'+FI_TEAM2.map((n,i)=>r('f2n',n,'<b>'+n+' Mitarbeiter</b>',i===0)).join('')+'<p class="note" id="f2sum"></p><p class="derr" id="derr"></p>',
+   [{t:'Abbrechen'},{t:'Gründen',pri:1,f:()=>{const g=get(),e=fiFound2(S,g.br,g.n);if(e){derr(e);return false;}toast('Firma gegründet.');commit();}}],
+   ()=>{const u=()=>{$('f2sum').innerHTML=sum();};u();$('f2b').addEventListener('change',u);document.querySelectorAll('#modal input[name=f2n]').forEach(x=>x.addEventListener('change',u));});
 }
 function foundRow(){
   const e=S.retired?'Du bist in Rente.':S.exp<SELF_EXP?'Dafür brauchst du '+SELF_EXP/12+' Jahre Berufserfahrung.':null;
@@ -4801,6 +4834,7 @@ function vJob(){
     h+='<section><h2>'+(w==='Ausbildung'?'Meine ':'Mein ')+w+'</h2><div class="pad"><div class="kv"><span>Ziel</span><span>'+to.n+'</span><span>Gerade</span><span>'+QBY[st.id].name+', noch '+st.left+' Mon.</span>'+(ch.length>1?'<span>Danach</span><span>'+ch.slice(1).map(q=>QBY[q].name).join(', ')+'</span>':'')+'<span>Fertig in</span><span>'+(rest>=12?(Math.floor(rest/12*10)/10).toString().replace('.',',')+' Jahren':rest+' Monaten')+'</span><span>Danach netto ca.</span><span>'+eur(to.net*lv(S).gehalt/3200)+' im Monat</span></div>'+
      '<p class="note">'+(w==='Ausbildung'?'Du bekommst eine Ausbildungsvergütung. ':'Du lebst von Nebenjob und BAföG und zahlst einen kleinen Semesterbeitrag. ')+'Als '+(w==='Ausbildung'?'Azubi':'Student')+' brauchst du nur halb so viel zum Leben. Nach dem Abschluss startest du automatisch als '+to.n+(w==='Ausbildung'?', meist übernimmt dich dein Ausbildungsbetrieb':'')+'. Bewerben, Selbstständigkeit und Personalagentur gehen erst danach.</p></div></section>';}
   if(S.firm)h+=firmSec();
+  (S.firms||[]).forEach((F,k)=>{h+=fiAt(S,F,()=>firmSec()).replace(/data-act="/g,'data-fi="'+k+'" data-act="');});
   h+='<section>'+secHead('side','Nebentätigkeit',S.side?'läuft':'');
   if(!S.ui.c.side){
     SIDES.forEach(sd=>{const act=S.side===sd.id,okx=S.exp>=sd.exp;
@@ -5051,7 +5085,7 @@ function decCard(){
 // Solange eine Leiste mit dem Finger verschoben wird oder noch ausrollt, wartet das automatische Neuzeichnen
 let barKey='',barTouch=false,barMoved=0;
 const barBusy=()=>barTouch||performance.now()-barMoved<350;
-function renderView(){
+function renderView(){if(S&&S._fiSw){fiPend=1;return;}
   if(!S||startOpen)return;
   const v=$('view');
   const map={plan:vPlan,hv:vHvPage,uebers:vOver,bank:vBank,wp:vWp,sach:vSach,re:vRe,biz:vBiz,job:vJob,life:vLife,genuss:vGenuss,erf:vAch,stat:vStat,fam:vFam,rente:vRente,up:vUp};
@@ -5184,8 +5218,12 @@ function vPlan(){
 }
 
 /* ---------- Aktionen ---------- */
-function commit(){dirty=true;saveLocal();updateHeader();renderView();}
-function act(a,id){
+function commit(){if(S&&S._fiSw){fiPend=1;return;}dirty=true;saveLocal();updateHeader();renderView();}
+// V127: weitere Firmen. Knöpfe tragen data-fi (Nummer in S.firms); Aktion und Dialog laufen dann mit dieser Firma (fiAt).
+let fiK=-1,fiPend=0;const FIA=new Set(['fihire','fifire','fiup','fiipo','figmbh','fimod','figf','figfoff','akbuy','aksell','fisell']);
+function fiUi(fn,k){const F=k>=0&&S.firms?S.firms[k]:null;if(!F)return fn();fiK=k;fiPend=0;const r=fiAt(S,F,fn);if(fiPend){fiPend=0;commit();}return r;}
+function act(a,id,fi){
+  if(FIA.has(a)&&fi!=null&&fi!==''&&!(S&&S._fiSw))return fiUi(()=>act(a,id),+fi);
   if(a==='pfold'){const u=+id;if(S.pfold[u])delete S.pfold[u];else S.pfold[u]=1;return commit();}
   if(a==='btall'){rsel.btype='all';return renderView();}
   if(a==='pfoldall'){S.pfold={};if(id==='close')S.props.forEach(x=>{S.pfold[x.uid]=1;});return commit();}
@@ -5241,10 +5279,11 @@ function act(a,id){
   if(a==='fifire'&&+id>1){const n=+id;return dlg(n+' Mitarbeiter entlassen','<p class="dn">Du entlässt '+n+' Mitarbeiter. Die Abfindungen kosten je ein Monatsgehalt, zusammen '+eur(fiCost(S)*n)+'.</p>',[{t:'Abbrechen'},{t:'Entlassen',pri:1,f:()=>{const e=fiFire(S,n);toast(e||n+' Mitarbeiter entlassen.');commit();}}]);}
   if(a==='fiup'){const l=(S.firm.lvl||0)+1,st=FI_STAGE[l];return dlg('Ausbau zum '+st.n,'<p class="dn">'+st.d+' Kosten: '+eur(st.cost*S.inf)+'.</p><p class="note">Danach bis '+st.max.toLocaleString('de-DE')+' Mitarbeiter. Jeder bringt fest etwa '+Math.round((st.mg-1)*100)+'&nbsp;% mehr Umsatz, als er kostet. Wachsen geht nur schrittweise: etwa 10&nbsp;% mehr Mitarbeiter im Monat.</p>',[{t:'Abbrechen'},{t:'Ausbauen',pri:1,f:()=>{const e=fiUp(S);toast(e||'Ausbau abgeschlossen.');commit();}}]);}
   if(a==='fiipo')return dlg('Börsengang','<p class="dn">Du verkaufst die Hälfte deiner Aktien für ca. '+eur(fiValue(S)*0.475)+'.</p><p class="note">Danach leitet ein Vorstand den Konzern, du kannst nicht mehr einstellen oder entlassen. Du bekommst jeden Monat 50&nbsp;% vom Gewinn als Dividende. Die andere Hälfte der Aktien liegt in deinem Depot (Seite Wertpapiere). Ihr Kurs schwankt mit der Börse und dem Gewinn. Nach 6 Monaten Sperrfrist kannst du Teile oder alle verkaufen. Das lässt sich nicht rückgängig machen.</p>',[{t:'Abbrechen'},{t:'An die Börse',pri:1,f:()=>{const e=fiIpo(S);toast(e||'Dein Konzern ist an der Börse.');commit();}}]);
-  if(a==='fihire')return dlg('Mitarbeiter einstellen','<p class="dn">Du stellst einen Mitarbeiter ein. Einstellung kostet '+eur(FI_HIRE*S.inf)+', danach '+eur(fiCost(S))+' im Monat.</p><p class="note">Er bringt im Schnitt etwa '+Math.round((fiMargin(Object.assign({},S,{firm:{emp:(S.firm?S.firm.emp:0)+1}}))-1)*100)+' % mehr Umsatz, als er kostet, in den ersten 3 Monaten erst die Hälfte. Dein eigener Verdienst sinkt um 7 %, weil du mehr führst und weniger selbst arbeitest.</p>',[{t:'Abbrechen'},{t:'Einstellen',pri:1,f:()=>{const e=fiHire(S,1);toast(e||'Mitarbeiter eingestellt.');commit();}}]);
+  if(a==='fihire')return dlg('Mitarbeiter einstellen','<p class="dn">Du stellst einen Mitarbeiter ein. Einstellung kostet '+eur(FI_HIRE*S.inf)+', danach '+eur(fiCost(S))+' im Monat.</p><p class="note">Er bringt im Schnitt etwa '+Math.round((fiMargin(Object.assign({},S,{firm:{emp:(S.firm?S.firm.emp:0)+1}}))-1)*100)+' % mehr Umsatz, als er kostet, in den ersten 3 Monaten erst die Hälfte.'+(S._fiSw?'':' Dein eigener Verdienst sinkt um 7 %, weil du mehr führst und weniger selbst arbeitest.')+'</p>',[{t:'Abbrechen'},{t:'Einstellen',pri:1,f:()=>{const e=fiHire(S,1);toast(e||'Mitarbeiter eingestellt.');commit();}}]);
   if(a==='fifire')return dlg('Mitarbeiter entlassen','<p class="dn">Du entlässt einen Mitarbeiter. Die Abfindung kostet ein Monatsgehalt ('+eur(fiCost(S))+').</p>',[{t:'Abbrechen'},{t:'Entlassen',pri:1,f:()=>{const e=fiFire(S);toast(e||'Mitarbeiter entlassen.');commit();}}]);
   if(a==='figmbh')return dlg('GmbH gründen','<p class="dn">Deine Firma wird eine GmbH. Kosten: '+eur(FI_GMBH*S.inf)+' für Notar und Handelsregister, dazu '+eur(FI_CAP*S.inf)+' Stammkapital.</p><p class="note">Das Stammkapital bleibt in der Firma und zählt zum Firmenwert. Danach bis '+FI_MAX+' Mitarbeiter, und du haftest nicht mehr mit deinem privaten Vermögen.</p>',[{t:'Abbrechen'},{t:'Gründen',pri:1,f:()=>{const e=fiGmbh(S);toast(e||'GmbH gegründet.');commit();}}]);
   if(a==='found')return openFound();
+  if(a==='found2')return openFound2();
   if(a==='fimod')return dlg('Firma modernisieren','<p class="dn">Du investierst '+eur(S.firm.inv*S.inf)+' in neue Maschinen, Technik und Räume. Danach macht die Firma wieder vollen Umsatz (+15 %).</p>',[{t:'Abbrechen'},{t:'Modernisieren',pri:1,f:()=>{const e=fiModern(S);toast(e||'Firma modernisiert.');commit();}}]);
   if(a==='figf')return dlg('Geschäftsführer einsetzen','<p class="dn">Ein Geschäftsführer leitet deine Firma für ca. '+eur(fiGfCost(S))+' im Monat (Grundgehalt plus 8&nbsp;% vom Umsatz, bei großem Umsatz weniger).</p><p class="note">Du bist dann frei: Als Selbstständiger arbeitest du wieder voll für eigene Kunden, oder du nimmst eine Stelle an. Der Gewinn der Firma kommt weiter auf dein Konto.</p>',[{t:'Abbrechen'},{t:'Einsetzen',pri:1,f:()=>{const e=fiGf(S,true);toast(e||'Geschäftsführer eingesetzt.');commit();}}]);
   if(a==='figfoff')return dlg('Firma selbst leiten','<p class="dn">Der Geschäftsführer geht, du leitest die Firma wieder selbst. Dein eigener Verdienst sinkt dadurch wieder.</p>',[{t:'Abbrechen'},{t:'Selbst leiten',pri:1,f:()=>{const e=fiGf(S,false);toast(e||'Du leitest die Firma wieder.');commit();}}]);
@@ -5638,7 +5677,7 @@ function openZb(uid){
 
 /* ---------- Speichern ---------- */
 function loadLocal(){try{const r=localStorage.getItem(KEY);return r?JSON.parse(r):null;}catch(e){return null;}}
-function saveLocal(){if(!S)return;S.savedAt=Date.now();try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+function saveLocal(){if(!S)return;if(S._fiSw){fiPend=1;return;}S.savedAt=Date.now();try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
 function exportText(){try{return btoa(unescape(encodeURIComponent(JSON.stringify(S))));}catch(e){return '';}}
 /* ---------- App-Fassung (GitHub Pages, window.__web): Start ohne Netz, Hinweis auf neue Version, Erinnerung an die Sicherung ---------- */
 const BAK_KEY='vf_bak',BAK_DAYS=14,BAK_SNOOZE=7,DAYMS=864e5;
@@ -5933,7 +5972,7 @@ function start(data){
   const tabs=$('tabs');
   buildTabs();
   tabs.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.tab==='mehr'&&narrow())return openMore();tab=b.dataset.tab==='mehr'?(MORE.includes(S&&S.ui.sub.mehr)?S.ui.sub.mehr:'stat'):b.dataset.tab;tabs.querySelectorAll('button').forEach(x=>x.setAttribute('aria-selected',x===b?'true':'false'));renderView();window.scrollTo(0,0);const v=$('view');v.classList.remove('enter');void v.offsetWidth;v.classList.add('enter');b.scrollIntoView({block:'nearest',inline:'nearest'});});
-  $('view').addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b||b.disabled)return;act.x=e.clientX;act.y=e.clientY;act(b.dataset.act,b.dataset.id);});
+  $('view').addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b||b.disabled)return;act.x=e.clientX;act.y=e.clientY;act(b.dataset.act,b.dataset.id,b.dataset.fi);});
   $('view').addEventListener('change',e=>{if(e.target.id==='selBrand'){sel.brand=e.target.value;renderView();}if(e.target.id==='selReg'){rsel.reg=e.target.value;renderView();}if(e.target.id==='selBS'){rsel.bsort=e.target.value;renderView();}if(e.target.id==='selBT'){rsel.btype=e.target.value;renderView();}if(e.target.id==='selType'){rsel.type=e.target.value;renderView();}if(e.target.id==='selSort'){rsel.sort=e.target.value;renderView();}});
   $('speed').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;speed=Number(b.dataset.s);$('speed').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b?'true':'false'));});
   {const v=$('view'),inBar=e=>!!(e.target&&e.target.closest&&e.target.closest('.subtabs'));
