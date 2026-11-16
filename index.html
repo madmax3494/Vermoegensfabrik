@@ -309,7 +309,7 @@ button.chip:hover{background:var(--accent-soft);color:var(--accent)}
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f3f5f9" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0b1020" media="(prefers-color-scheme: dark)">
-<script>window.__web="115";</script>
+<script>window.__web="116";</script>
 </head>
 <body>
 <div class="wrap">
@@ -691,6 +691,8 @@ const PT={
  ferienhaus:{name:'Ferienhaus',m2:[60,140],s:16,own:1,hol:1,mm:1.2,vm:1},
  laden:{name:'Ladenlokal',m2:[40,150],s:3,mm:.8,vm:1.5},
  buero:{name:'Bürohaus',m2:[300,1500],s:5,mm:.9,vm:1.5},
+ hoch:{name:'Wohnhochhaus',m2:[2000,7000],s:24,mm:1.1,vm:1},
+ ekz:{name:'Einkaufszentrum',m2:[3000,10000],s:12,mm:.7,vm:1.3},
  grund:{name:'Baugrundstück',m2:[600,3000],s:2,mm:.08,vm:0,norent:1}
 };
 const TAGS={
@@ -772,6 +774,9 @@ const XT={
  sylt:{pension:[14000,.034]}
 };
 for(const k in XT)Object.assign(REG[k].t,XT[k]);
+// V116: Baugrundstücke in Großstädten (Bodenrichtwerte für Geschosswohnungsbau, grob). Nur hier gehen Hochhaus, Bürogebäude und Einkaufszentrum.
+const CITY_GRUND={A:4000,berlin:2800,muc:6000,ffm:3800,koeln:2000,dues:2400,stutt:2600},CITY=Object.keys(CITY_GRUND);
+for(const k of CITY)REG[k].t.grund=[CITY_GRUND[k],0];
 
 function gauss(rnd){let u=0;while(u<1e-12)u=rnd();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*rnd());}
 function pick(a,rnd){return a[Math.floor(rnd()*a.length)];}
@@ -810,18 +815,25 @@ function leaseCalc(S,m,down){
   return {P,R,n,i,D,rate:(F-R)/n+(F+R)/2*i/1200};
 }
 function leaseTotal(S){let t=0;S.sach.forEach(it=>{if(it.lease&&it.lease.due==null)t+=it.lease.rate;});return t;}
-// Preis und Mietrendite je Gegend und Objektart. Villa (V115): überall baubar, wo Häuser stehen; ohne eigenen Villen-Markt gilt der Hauspreis +25 %, Rendite 80 % davon.
+// Preis und Mietrendite je Gegend und Objektart. Fehlt eine Art in einer Gegend (nur für Neubauten wichtig), wird sie aus einer
+// verwandten Art abgeleitet: [Quelle, Preisfaktor, Renditefaktor], Faktoren = Durchschnitt der Gegenden, die beide Arten haben.
+// V115 Villa (Hauspreis +25 %, Rendite 80 %), V116 alle übrigen Bauarten.
 const VILLA_FB={p:1.25,y:0.8};
-function regT(lage,type){const t=REG[lage].t;if(t[type])return t[type];if(type==='villa'&&t.haus)return [t.haus[0]*VILLA_FB.p,t.haus[1]*VILLA_FB.y];return null;}
+const REG_FB={haus:[['ferienhaus',1,1]],dhh:[['haus',.95,1.03],['ferienhaus',.9,1.03]],reihenhaus:[['haus',.9,1.06],['ferienhaus',.85,1.06]],
+ bungalow:[['haus',.94,1.04],['ferienhaus',.9,1.04]],villa:[['haus',VILLA_FB.p,VILLA_FB.y],['ferienhaus',VILLA_FB.p,VILLA_FB.y]],
+ mfh:[['whg',.81,1.17],['ferienwhg',.75,1.1]],hoch:[['mfh',1.1,.95]],wgh:[['whg',.83,1.19],['ferienwhg',.75,1.15]],
+ halle:[['whg',.22,1.54],['ferienwhg',.18,1.4]],markt:[['whg',.74,1.28],['ferienwhg',.6,1.2]],buero:[['whg',.82,1.61]],ekz:[['laden',.9,1],['buero',1,.9],['whg',.85,1.4]]};
+function regT(lage,type,d){const t=REG[lage].t;if(t[type])return t[type];if((d|0)>2)return null;
+  for(const [src,pf,yf] of (REG_FB[type]||[])){const e=regT(lage,src,(d|0)+1);if(e)return [e[0]*pf,e[1]*yf];}return null;}
 function propValue(x,S){
   const e=regT(x.lage,x.type);
-  return (PT[x.type].fix?e[0]:x.m2*e[0])*S.rei[x.lage]*x.q*(x.fo?1-0.6*x.fo.kahl/Math.max(0.01,waldHa(x)):1)+(x.bau?x.bau.paid*0.95:0);
+  return (PT[x.type].fix?e[0]:x.m2*e[0])*S.rei[x.lage]*x.q*(x.fo?1-0.6*x.fo.kahl/Math.max(0.01,waldHa(x)):1)+(x.bau?x.bau.paid*0.95:0)+(x.wind?windVal(S,x):0);
 }
-const COMM={halle:1,markt:1,laden:1,buero:1,stell:1,garage:1};
+const COMM={halle:1,markt:1,laden:1,buero:1,stell:1,garage:1,ekz:1};
 const MLK={frei:'Freie Miete',index:'Indexmiete',staffel:'Staffelmiete'};
 function leaseOk(x){const T=PT[x.type];return !!T&&!T.norent&&!T.hol&&!x.fe;}
 function rentNow(x,S){if(x.fe)return feAvg(S,x);if(x.units)return x.units.reduce((t,u)=>t+(u.vac>0?0:(u.ml?u.ml.r:mkU(S,x,u))),0);return x.ml&&leaseOk(x)?x.ml.r:marketRent(x,S);}
-const UT={mfh:1,wgh:1};
+const UT={mfh:1,wgh:1,hoch:1};
 function mkU(S,x,u){return marketRent(x,S)*u.m2/Math.max(1,x.m2)*(u.rf||1);}
 function hvOn(S){return !!(S.upg&&S.upg.verw);}
 /* ---------- Hausverwaltungs-Konto und eigene Immobilienverwaltung (V103) ----------
@@ -1277,7 +1289,31 @@ function waldInit(S,x,rnd){
   x.fo={art,fm:Math.round(waldHa(x)*WALD[art].g*(1+rnd()*4)),kahl:0,last:S.day,auto:true,jf:t.includes('Jagd')?1.5:1,hv:0,jg:0,fz:0,sch:0};
 }
 function holzNet(S,x){return WALD[x.fo.art].p*(S.holz||1)*S.inf;}
-function waldGrow(x){return Math.max(0,waldHa(x)-x.fo.kahl)*WALD[x.fo.art].g;}
+function waldGrow(x){return Math.max(0,waldHa(x)-x.fo.kahl-windHa(x))*WALD[x.fo.art].g;}
+/* ---------- Windräder im Wald verpachten (V116) ----------
+   Ab WIND_HA Hektar bietet ein Windpark-Betreiber an, Windräder aufzustellen: je volle 10 ha eines, höchstens 6.
+   Ablauf: Planung und Genehmigung 2 Jahre (Erfolg 75 %), Bau 9 Monate, dann 20 Jahre feste Pacht (WIND_P je Windrad und Jahr,
+   steigt mit der Inflation), danach Rückbau durch den Betreiber. Je Windrad werden WIND_FL ha Wald dauerhaft gerodet.
+   Wird die Genehmigung abgelehnt, ist ein neuer Antrag nach 3 Jahren möglich. Der Vertrag geht beim Verkauf auf den Käufer über
+   und erhöht den Wert (halbe Restpacht). Zustand x.wind={st:'plan'|'bau'|'on',n,r(Jahrespacht ohne Inflation),t (nächster Schritt),end} */
+const WIND_HA=20,WIND_P=55000,WIND_FL=0.6,WIND_MAX=6,WIND_YRS=20;
+function windN(x){return Math.min(WIND_MAX,Math.floor(waldHa(x)/10));}
+function windHa(x){return x.wind&&x.wind.st!=='plan'?x.wind.n*WIND_FL:0;}
+function windYear(S,x){return x.wind?x.wind.n*x.wind.r*S.inf:windN(x)*WIND_P*S.inf;}
+function windWhy(S,x){if(!x||!PT[x.type]||!PT[x.type].forst)return 'Windräder gehen nur auf Waldgrundstücken.';if(REG[x.lage].foreign)return 'Nur in Deutschland.';
+  if(x.wind)return 'Für diesen Wald läuft schon ein Windrad-Vertrag.';if(waldHa(x)<WIND_HA)return 'Der Wald ist zu klein. Windpark-Betreiber suchen Flächen ab '+WIND_HA+' Hektar.';
+  if(x.windNo&&x.windNo>S.day)return 'Der letzte Antrag wurde abgelehnt. Ein neuer Antrag ist ab '+dateOf(x.windNo).txt+' möglich.';return null;}
+function windStart(S,uid){const x=S.props.find(o=>o.uid===uid);const e=windWhy(S,x);if(e)return e;
+  x.wind={st:'plan',n:windN(x),r:WIND_P,t:S.day+720,end:0};
+  logMsg(S,'Windpark: Der Betreiber plant '+x.wind.n+' Windr'+(x.wind.n===1?'ad':'äder')+' in deinem Wald bei '+x.city+'. Die Genehmigung dauert etwa zwei Jahre.');return null;}
+function windMonth(S,x,rnd,money){const w=x.wind;if(!w)return;
+  if(w.st==='plan'&&S.day>=w.t){if(rnd()<0.75){w.st='bau';w.t=S.day+270;logMsg(S,'Windpark genehmigt: Im Wald bei '+x.city+' werden jetzt '+w.n+' Windr'+(w.n===1?'ad':'äder')+' gebaut ('+(w.n*WIND_FL).toFixed(1).replace('.',',')+' ha werden gerodet). Die Pacht beginnt nach etwa 9 Monaten.');}
+    else{delete x.wind;x.windNo=S.day+3*360;logMsg(S,'Windpark abgelehnt: Die Behörde hat die Windräder im Wald bei '+x.city+' nicht genehmigt (Artenschutz). Ein neuer Antrag ist in drei Jahren möglich.');}return;}
+  if(w.st==='bau'&&S.day>=w.t){w.st='on';w.end=S.day+WIND_YRS*360;logMsg(S,'Windräder in Betrieb: Ab jetzt bekommst du '+Math.round(windYear(S,x))+' € Pacht im Jahr, '+WIND_YRS+' Jahre lang.');}
+  if(w.st==='on'){if(S.day>=w.end){delete x.wind;logMsg(S,'Windpark-Vertrag ausgelaufen: Die Windräder im Wald bei '+x.city+' werden abgebaut, die Fläche wird wieder aufgeforstet.');return;}
+    const r=windYear(S,x)/12;money('Pachteinnahmen',r);x.inc=(x.inc||0)+r;}
+}
+function windVal(S,x){const w=x.wind;if(!w||w.st!=='on')return 0;return windYear(S,x)*Math.max(0,(w.end-S.day)/360)*0.5;}
 function waldJagd(S,x){const ha=waldHa(x);return ha*(ha>=WALD_EJ?18:5)*x.fo.jf*S.inf;}
 function waldYear(S,x){waldInit(S,x);return waldGrow(x)*holzNet(S,x)+waldJagd(S,x)-maintYear(S,x);}
 function waldCanCut(S,x){return !!x.fo&&x.fo.fm>=Math.max(5,waldGrow(x)*3);}
@@ -1307,6 +1343,7 @@ function waldMonth(S,x,rnd,money,mi){
     if([10,11,0,1,2].includes(mi)&&rnd()<0.006)waldDamage(S,x,0.1+rnd()*0.3,'sturm',money);
     else if(mi>=4&&mi<=8&&rnd()<W.k)waldDamage(S,x,0.05+rnd()*0.25,'kaefer',money);
   }
+  windMonth(S,x,rnd,money);
 }
 function holzStep(S,rnd){S.holz=Math.max(0.5,Math.min(1.6,(S.holz||1)*(1+(rnd()-0.5)*0.06)+(1-(S.holz||1))*0.03));}
 function bizCost(b,n){return b.cost*Math.pow(1.2,n);}
@@ -1983,7 +2020,8 @@ function fiMonth(S,money,rnd){
     else if(F.emp>cn*1.05&&F.emp>1){const g=Math.min(F.emp-1,Math.ceil(F.emp*0.02));F.emp-=g;F.hires.splice(F.hires.length-g,g);}akKurs(S,rnd);return;}
   // Ein Geschäftsführer passt das Personal an: bei zu wenig Aufträgen baut er pro Monat bis zu 3 % ab (mit Abfindung)
   if(F.gf&&F.emp>fiCapN(S)*1.05&&F.emp>1){const g=Math.min(F.emp-1,Math.ceil(F.emp*0.03));money('Firma: Abfindung',-c*g);F.emp-=g;F.hires.splice(F.hires.length-g,g);if(!F.cutLog||S.day-F.cutLog>360){F.cutLog=S.day;logMsg(S,'Zu wenig Aufträge: Dein Geschäftsführer baut Stellen ab, bis das Personal wieder zur Auftragslage passt.');}}
-  const own=fiOwnPay(S);
+  // V116: derselbe Betrag wie privat gebucht (sonst Abweichung, wenn dazwischen eine Krise beginnt)
+  const own=S._ownPay!=null?S._ownPay:fiOwnPay(S);
   if(rev)money('Firma: Umsatz',rev);if(cost)money('Firma: Personalkosten',-cost);if(gf)money('Firma: Geschäftsführer',-gf);if(own)money('Firma: dein Geschäftsführergehalt',-own);
   const p=rev-cost-gf-own;F.last={rev,cost,gf,own,p};F.prof.push(p);if(F.prof.length>12)F.prof.shift();
   if(fiLead(S))S.rest=Math.max(0,S.rest-Math.min(3,0.2*F.emp));
@@ -2395,7 +2433,9 @@ function normalize(o){
   S.tg=Object.assign(dtg,o.tg||{});S.rei=Object.assign(reiInit(),o.rei||{});
   S.led=Object.assign({cur:{},last:{}},o.led||{});S.tx=Object.assign({net:0},o.tx||{});
   S.bizFx=Object.assign({f:1,until:0},o.bizFx||{});S.pend=o.pend||{};
-  S.hold=o.hold||{};S.sach=Array.isArray(o.sach)?o.sach.filter(it=>MBY[it.mid]):[];if(Array.isArray(o.sach)){o.sach.forEach(it=>{if(!MBY[it.mid]&&!it.lease)S.cash+=it.cost||0;});}if(o.sach&&!Array.isArray(o.sach)){for(const k in o.sach){S.cash+=o.sach[k].cost||0;}}for(const k in S.prices){if(!TBY[k])delete S.prices[k];}S.fest=o.fest||[];S.props=o.props||[];S.offers=(o.offers&&o.offers.length)?o.offers:[];S.promos=o.promos||[];S.promoAcc=o.promoAcc||[];S.lombard=Object.assign({bal:0},o.lombard||{});S.loans=o.loans||[];
+  S.hold=o.hold||{};S.sach=Array.isArray(o.sach)?o.sach.filter(it=>MBY[it.mid]):[];if(Array.isArray(o.sach)){o.sach.forEach(it=>{if(!MBY[it.mid]&&!it.lease)S.cash+=it.cost||0;});}if(o.sach&&!Array.isArray(o.sach)){for(const k in o.sach){S.cash+=o.sach[k].cost||0;}}for(const k in S.prices){if(!TBY[k])delete S.prices[k];}S.fest=o.fest||[];S.props=o.props||[];S.props.forEach(x=>{if(!PT[x.type])return;// V116: Miete NaN durch das QNG-Siegel (exRent) reparieren
+  if(!Number.isFinite(x.rent0)){const e=regT(x.lage,x.type);x.rent0=e&&!PT[x.type].norent?Math.round((PT[x.type].fix?e[0]:x.m2*e[0])*(x.q||1)*e[1]/12):0;}
+  if(x.ml&&!Number.isFinite(x.ml.r))x.ml=null;if(Array.isArray(x.units))x.units.forEach(u=>{if(u.ml&&!Number.isFinite(u.ml.r))u.ml=null;});});S.offers=(o.offers&&o.offers.length)?o.offers:[];S.promos=o.promos||[];S.promoAcc=o.promoAcc||[];S.lombard=Object.assign({bal:0},o.lombard||{});S.loans=o.loans||[];
   if(Array.isArray(S.loans))S.loans.forEach(l=>{if(l.sid&&!S.sach.some(it=>it.uid===l.sid))delete l.sid;if(l.pid&&!S.props.some(x=>x.uid===l.pid))delete l.pid;});
   S.partner=o.partner||null;S.plans=(o.plans||[]).filter(p=>TBY[p.id]&&p.amt>0).map(p=>({id:p.id,amt:p.amt,up:p.up>0?Math.min(25,p.up):0,next:isFinite(p.next)?p.next:(o.day||0)+360}));S.homeUp=o.homeUp>=1?Math.min(2.5,o.homeUp):1;S.divAll=o.divAll>0?o.divAll:0;S.ly={};if(o.ly&&typeof o.ly==='object'){for(const k in o.ly)if(isFinite(o.ly[k]))S.ly[k]=o.ly[k];}S.pop=o.pop!==false;S.yrPop=false;S.firm=o.firm&&isFinite(o.firm.emp)?Object.assign(fiNew({day:o.day||0}),o.firm,{hires:(Array.isArray(o.firm.hires)?o.firm.hires.filter(isFinite):[]).concat(Array(Math.max(0,(o.firm.emp|0)-(Array.isArray(o.firm.hires)?o.firm.hires.filter(isFinite).length:0))).fill(0)).slice(0,o.firm.emp|0),prof:Array.isArray(o.firm.prof)?o.firm.prof.filter(isFinite):[]}):null;if(S.firm&&!(o.firm.mkt>0))S.firm.mkt=fiMktGen(S,S.firm);if(S.firm&&S.firm.ipo){const F=S.firm;if(!(F.tot>0))F.tot=akTot(S);if(!(F.own>0))F.own=Math.round((F.share>0?F.share:0.5)*F.tot);F.share=F.own/F.tot;if(!(F.kurs>0)){F.kurs=Math.max(0.01,fiFairK(S));F.kurs0=F.kurs;}if(!(F.kurs0>0))F.kurs0=F.kurs;if(!(F.k1>0))F.k1=F.kurs;if(!isFinite(F.ipoDay))F.ipoDay=(o.day||0)-AK_LOCK;if(!isFinite(F.mref))F.mref=null;}S.self=o.self&&isFinite(o.self.since)?{since:o.self.since,f:isFinite(o.self.f)?o.self.f:1}:null;S.agen=o.agen&&isFinite(o.agen.next)?{since:o.agen.since||0,next:o.agen.next,n:o.agen.n||0}:null;S.dec=(o.dec&&DECT[o.dec.type]&&Array.isArray(o.dec.opts)&&isFinite(o.dec.until))?o.dec:null;S.sellMode=SELLM.some(x=>x[0]===o.sellMode)?o.sellMode:'fifo';S.rpts=o.rpts!=null?o.rpts:1;S.vor={bav:Object.assign({bal:0,mon:0},o.vor&&o.vor.bav),priv:Object.assign({bal:0,mon:0},o.vor&&o.vor.priv),avd:Object.assign({bal:0,mon:0,k:'std',ein:0,zul:0,px:0},o.vor&&o.vor.avd)};
   for(const k of VK){const v=S.vor[k];if(!(v.bal>=0)||!isFinite(v.bal))v.bal=0;if(!(v.mon>=0))v.mon=0;if(VORUPK.includes(k)){v.up=VORUP.includes(v.up)?v.up:0;if(!isFinite(v.next))v.next=(S.day||0)+360;}else{delete v.up;delete v.next;}}if(!AVDK[S.vor.avd.k])S.vor.avd.k='std';if(!(S.vor.avd.px>0))S.vor.avd.px=S.prices&&S.prices.etf?S.prices.etf.p:0;
@@ -2707,34 +2747,45 @@ const BAU=[
  {id:'rh',name:'Reihenhaus',type:'reihenhaus',m2:115,c:3200,n:12,plot:250},
  {id:'bung',name:'Bungalow',type:'bungalow',m2:110,c:3800,n:13,plot:700},
  {id:'mfh',name:'Mehrfamilienhaus (6 Wohnungen)',type:'mfh',m2:450,c:3100,n:16,plot:900,we:6},
- {id:'villa',name:'Villa',type:'villa',m2:300,c:5200,n:22,plot:1200}
+ {id:'villa',name:'Villa',type:'villa',m2:300,c:5200,n:22,plot:1200},
+ // V116: Gewerbe und Wohn-/Geschäftshaus in ganz Deutschland (de), große Gebäude nur in Großstädten (big, siehe CITY)
+ {id:'wgh',name:'Wohn- und Geschäftshaus (2 Läden, 6 Wohnungen)',type:'wgh',m2:700,c:3200,n:16,plot:700,we:8,de:1},
+ {id:'halle',name:'Gewerbehalle',type:'halle',m2:1500,c:950,n:8,plot:2500,de:1},
+ {id:'markt',name:'Supermarkt mit Parkplatz',type:'markt',m2:1400,c:1900,n:10,plot:2800,de:1},
+ {id:'buero',name:'Bürogebäude',type:'buero',m2:3000,c:3400,n:24,plot:1200,big:1},
+ {id:'bueroT',name:'Büroturm',type:'buero',m2:8000,c:4200,n:36,plot:2400,big:1},
+ {id:'hoch40',name:'Wohnhochhaus (40 Wohnungen)',type:'hoch',m2:2800,c:3800,n:30,plot:1400,we:40,big:1},
+ {id:'hoch60',name:'Wohnhochhaus (60 Wohnungen)',type:'hoch',m2:4200,c:3900,n:36,plot:2000,we:60,big:1},
+ {id:'hoch90',name:'Wohnhochhaus (90 Wohnungen)',type:'hoch',m2:6300,c:4000,n:42,plot:2800,we:90,big:1},
+ {id:'ekz',name:'Einkaufszentrum',type:'ekz',m2:6000,c:2600,n:30,plot:3000,big:1}
 ];
 [3,4,8,10,12,16,20].forEach(n=>BAU.push({id:'mfh'+n,name:'Mehrfamilienhaus ('+n+' Wohnungen)',type:'mfh',m2:n*75,c:3100-Math.min(300,n*15),n:Math.round(12+n*0.6),plot:Math.max(450,n*150),we:n}));
-BAU.sort((a,b)=>(a.type==='mfh'&&b.type==='mfh')?a.we-b.we:0);
+const BAU_ORD=['haus','dhh','reihenhaus','bungalow','villa','mfh','wgh','hoch','halle','markt','buero','ekz'];
+BAU.sort((a,b)=>BAU_ORD.indexOf(a.type)-BAU_ORD.indexOf(b.type)||(a.we||0)-(b.we||0)||a.m2-b.m2);
 const BBY={};BAU.forEach(b=>BBY[b.id]=b);
 const PAK={einf:{n:'Einfach',cf:0.85,vf:0.9,rf:0.93,mf:1.15,s:0,d:'Laminat, Standardbad, einfache Küche. Günstiger, aber weniger Miete und Wert, mehr Reparaturen.'},
  std:{n:'Standard',cf:1,vf:1,rf:1,mf:1,s:0,d:'Solide Mittelklasse: Parkett im Wohnbereich, gefliestes Bad, Markenfenster.'},
  geh:{n:'Gehoben',cf:1.25,vf:1.18,rf:1.12,mf:0.9,s:2,d:'Echtholzparkett, Designbäder, bodentiefe Fenster. Mehr Miete, langlebiger, aber nicht jeder Euro kommt im Wert zurück.'}};
 const EXTRAS=[
- {id:'kfw',n:'Effizienzhaus 40 (KfW)',pc:0.07,dv:1,drp:0.03,s:1,neu:1,d:'7 % mehr Baukosten, 3 % mehr Miete, zinsgünstiger KfW-Kredit bis 100.000 € je Wohnung'},
- {id:'qng',n:'Nachhaltigkeitssiegel QNG',pc:0.03,dv:1,drp:0,s:1,neu:1,req:'kfw',d:'nur mit Effizienzhaus 40: 3 % mehr Baukosten, KfW-Kredit bis 150.000 € je Wohnung'},
- {id:'pv',n:'Photovoltaik mit Speicher',c:22000,dv:0.7,dr:110,s:0,d:'Strom vom Dach'},
- {id:'wp',n:'Wärmepumpe und Fußbodenheizung',c:28000,dv:0.85,dr:70,s:0,d:'Niedrige Nebenkosten'},
- {id:'smart',n:'Smart Home',c:9000,dv:0.5,dr:30,s:0,d:'Licht, Heizung, Zugang per App'},
+ {id:'kfw',n:'Effizienzhaus 40 (KfW)',com:1,pc:0.07,dv:1,drp:0.03,s:1,neu:1,d:'7 % mehr Baukosten, 3 % mehr Miete, zinsgünstiger KfW-Kredit bis 100.000 € je Wohnung'},
+ {id:'qng',n:'Nachhaltigkeitssiegel QNG',com:1,pc:0.03,dv:1,drp:0,s:1,neu:1,req:'kfw',d:'nur mit Effizienzhaus 40: 3 % mehr Baukosten, KfW-Kredit bis 150.000 € je Wohnung'},
+ {id:'pv',n:'Photovoltaik mit Speicher',com:1,c:22000,dv:0.7,dr:110,s:0,d:'Strom vom Dach'},
+ {id:'wp',n:'Wärmepumpe und Fußbodenheizung',com:1,c:28000,dv:0.85,dr:70,s:0,d:'Niedrige Nebenkosten'},
+ {id:'smart',n:'Smart Home',com:1,c:9000,dv:0.5,dr:30,s:0,d:'Licht, Heizung, Zugang per App'},
  {id:'kueche',n:'Hochwertige Einbauküche',c:16000,per:1,dv:0.55,dr:50,s:0,d:'je Wohnung'},
  {id:'balkon',n:'Große Balkone oder Terrassen',c:12000,per:1,dv:0.9,dr:45,s:0,d:'je Wohnung'},
- {id:'wallbox',n:'Wallbox',c:2500,per:1,dv:0.6,dr:20,s:0,d:'je Wohnung'},
+ {id:'wallbox',n:'Wallbox',com:1,c:2500,per:1,dv:0.6,dr:20,s:0,d:'je Wohnung'},
  {id:'garage',n:'Garage bzw. Tiefgarage',c:28000,per:0.5,dv:0.8,dr:85,s:0,d:'bei Mehrfamilienhäusern für jede zweite Wohnung'},
- {id:'aufzug',n:'Aufzug',c:85000,only:['mfh'],dv:0.9,dr:25,drPer:1,s:0,d:'barrierearm, mehr Miete je Wohnung'},
+ {id:'aufzug',n:'Aufzug',com:1,c:85000,only:['mfh','hoch','wgh','buero','ekz'],dv:0.9,dr:25,drPer:1,s:0,d:'barrierearm, mehr Miete je Wohnung'},
  {id:'garten',n:'Gartenanlage',c:18000,dv:0.8,dr:40,s:0,d:'Rasen, Bäume, Terrasse'},
- {id:'sauna',n:'Sauna und Wellnessbereich',c:16000,not:['mfh'],dv:0.5,dr:60,s:1,d:''},
+ {id:'sauna',n:'Sauna und Wellnessbereich',c:16000,not:['mfh','hoch','wgh'],dv:0.5,dr:60,s:1,d:''},
  {id:'pool',n:'Pool',c:48000,only:['haus','bungalow','villa','dhh'],dv:0.6,dr:160,s:2,mm:1.1,d:'mehr Instandhaltung'},
  {id:'esan',n:'Energetische Sanierung (Dämmung, Fenster)',m2c:320,dv:0.8,drp:0.05,s:0,retro:1,d:'weniger Heizkosten, 15 % Förderung plus 5 % mit Sanierungsfahrplan'}
 ];
 const EXBY={};EXTRAS.forEach(e=>EXBY[e.id]=e);
-function exOk(b,e){return (!e.only||e.only.includes(b.type))&&!(e.not&&e.not.includes(b.type))&&!(e.retro&&!b.retro)&&!(e.neu&&b.retro);}
+function exOk(b,e){if(COMM[b.type]&&!e.com)return false;return (!e.only||e.only.includes(b.type))&&!(e.not&&e.not.includes(b.type))&&!(e.retro&&!b.retro)&&!(e.neu&&b.retro);}
 function exCost(S,b,e,base){const we=b.we||1;if(e.m2c)return e.m2c*(b.m2||100)*S.prices.ix_bau.p/100;return e.pc?base*e.pc:e.c*(e.per?Math.max(1,Math.round(we*e.per)):1)*S.prices.ix_bau.p/100;}
-function exRent(b,e){const we=b.we||1;return e.drp?0:e.dr*(e.per?Math.max(1,Math.round(we*e.per)):1)*(e.drPer?we:1);}
+function exRent(b,e){const we=b.we||1;return (e.drp!=null||!e.dr)?0:e.dr*(e.per?Math.max(1,Math.round(we*e.per)):1)*(e.drPer?we:1);}
 function ausNorm(b,A){A=A||{};const p=PAK[A.p]?A.p:'std';let ex=(Array.isArray(A.ex)?A.ex:[]).filter((id,i,a)=>EXBY[id]&&exOk(b,EXBY[id])&&a.indexOf(id)===i);ex=ex.filter(id=>!EXBY[id].req||ex.includes(EXBY[id].req));return {p,ex};}
 /* ---------- Grundstücke verpachten ----------
    Solange nicht gebaut wird, lässt sich ein Baugrundstück verpachten. Das Spiel wählt den Pächter nach Lage:
@@ -2767,7 +2818,7 @@ function pachtMonth(S,x,money){
 }
 function bauOpts(S,x){
   if(!x||x.type!=='grund'||x.bau||pachtOn(S,x))return [];
-  return BAU.filter(b=>regT(x.lage,b.type));
+  const R=REG[x.lage];return BAU.filter(b=>regT(x.lage,b.type)&&(!b.big||CITY.includes(x.lage))&&(!b.de||!R.foreign));
 }
 function bauCalc(S,x,b,ls,A){
   const R=REG[x.lage],base=b.m2*b.c*(0.95+0.04*Math.min(4,R.pr))*S.prices.ix_bau.p/100,land=propValue(x,S)*((x.m2-b.plot>=400)?b.plot/x.m2:1);
@@ -3468,11 +3519,11 @@ function monthly(S,rnd){
   const money=(cat,amt)=>{S.cash+=amt;addL(S,cat,amt);};
   // Gehalt und Leben
   if(!S.retired&&ageOf(S)>=RETAGE){S.retired=true;S.study=null;S.self=null;{const v=S.vor.avd,gf=(AVDK[v.k]||AVDK.std).g,min=gf*(v.ein+v.zul);if(gf>0&&v.bal<min){logMsg(S,'Garantie im Altersvorsorgedepot greift: Aufstockung um '+Math.round(min-v.bal)+' €.');v.bal=min;}}logMsg(S,'Rentenbeginn! Ab jetzt bekommst du Rente statt Gehalt.');S.lifePop=true;}
-  if(S.retired)money('Rente',renteMonth(S));else if(S.self){const f=selfFlux(S,rnd),own=fiOwnPay(S);S.self.f=f;money('Selbstständigkeit',(gehaltNow(S)-own)*f);if(own)money('Geschäftsführergehalt',own);S.rpts+=ptsRate(S)/12;}else{money('Gehalt',gehaltNow(S));S.rpts+=ptsRate(S)/12;if(mi===11)sonder(S,rnd,money);}
+  if(S.retired)money('Rente',renteMonth(S));else if(S.self){const f=selfFlux(S,rnd),own=fiOwnPay(S);S._ownPay=own;S.self.f=f;money('Selbstständigkeit',(gehaltNow(S)-own)*f);if(own)money('Geschäftsführergehalt',own);S.rpts+=ptsRate(S)/12;}else{money('Gehalt',gehaltNow(S));S.rpts+=ptsRate(S)/12;if(mi===11)sonder(S,rnd,money);}
   money('Lebenshaltung',-L.alltag*S.inf*famMul(S));
   famVor(S,money,L);
   pruneDust(S);
-  fiMonth(S,money,rnd);
+  fiMonth(S,money,rnd);delete S._ownPay;
   agMonth(S,money,rnd);
   decStep(S,rnd);
   if(!ownProp(S))money('Wohnungsmiete',-homeRent(S));
@@ -3699,7 +3750,7 @@ function pc(x,d){d=d==null?2:d;return x.toLocaleString('de-DE',{minimumFractionD
 
 const KEY='vermoegensfabrik-v2';
 // Versionsnummer, bei jeder Veröffentlichung hochzählen (bauen-web.sh liest sie hier)
-const VF_VERSION='115';
+const VF_VERSION='116';
 const $=id=>document.getElementById(id);
 const TAB_ICONS={
   uebers:'M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z',
@@ -4083,6 +4134,10 @@ function vSach(){
 }
 function haTxt(x){const h=waldHa(x);return (h<10?h.toFixed(1):String(Math.round(h))).replace('.',',')+' ha';}
 function propLine(x){return PT[x.type].name+(x.m2?' · '+(PT[x.type].forst?haTxt(x):x.m2+' m²'):'')+' · '+x.city;}
+function windTxt(x){const w=x.wind;if(!w)return '';const n=w.n+' Windr'+(w.n===1?'ad':'äder');
+  if(w.st==='plan')return '<br><b>Windpark:</b> '+n+' in Planung, Entscheid der Behörde ca. '+dateOf(w.t).txt;
+  if(w.st==='bau')return '<br><b>Windpark:</b> '+n+' im Bau, Pacht ab ca. '+dateOf(w.t).txt;
+  return '<br><b>Windpark:</b> '+n+' in Betrieb, Pacht <span class="pos">'+eur(windYear(S,x))+' im Jahr</span> bis '+dateOf(w.end).txt;}
 function waldInfo(x){
   waldInit(S,x);const f=x.fo,W=WALD[f.art],ha=waldHa(x),nv=holzNet(S,x),yr=waldYear(S,x),jg=waldJagd(S,x);
   return '<b>'+W.n+', '+haTxt(x)+'</b>: wächst um ca. '+Math.round(waldGrow(x))+' Festmeter (Fm) verkaufbares Holz im Jahr'+
@@ -4091,11 +4146,12 @@ function waldInfo(x){
    '<br>Kosten (Grundsteuer, Beiträge, Versicherung) ca. '+eur(maintYear(S,x))+' im Jahr · Ertrag im Schnitt ca. <span class="'+cls(yr)+'">'+eur(yr)+' im Jahr</span> vor Steuern'+
    '<br>Ernte: '+(f.auto?'automatisch, wenn ca. 5 Jahre Zuwachs bereitstehen und der Holzpreis nicht zu tief ist':'nur von Hand')+(waldCanCut(S,x)?' · <b class="pos">jetzt erntereif</b>':' · nächste Ernte möglich ab '+Math.round(Math.max(5,waldGrow(x)*3))+' Fm')+
    (f.kahl>0.01?'<br><b class="neg">Schadfläche '+f.kahl.toFixed(1).replace('.',',')+' ha</b> wird wieder aufgeforstet, Wert und Zuwachs sind solange geringer':'')+
+   windTxt(x)+
    '<br>Bisher: Holzverkauf '+eur(f.hv)+' · Jagdpacht '+eur(f.jg)+' · Förderung '+eur(f.fz)+(f.sch?' · '+f.sch+' Schadereignis(se)':'')+
    '<br><span class="dn">Risiko: Stürme (vor allem im Winter) und Borkenkäfer (im Sommer, besonders im Nadelwald) zerstören Teile des Waldes.</span>';
 }
 let rsel={reg:'A',type:'all',sort:'pa',bsort:'neu'};
-const TCATS=[['park','Stellplätze & Garagen',['stell','garage']],['wohn','Wohnungen',['whg','mikro','penthouse']],['haeuser','Häuser & Villen',['haus','reihenhaus','dhh','bungalow','villa','landhaus']],['mehr','Mehrfamilien- & Geschäftshäuser',['mfh','wgh']],['ferien','Ferienobjekte',['ferienwhg','ferienhaus','chalet','finca','pension']],['gewerbe','Gewerbe',['laden','buero','halle','markt']],['land','Grundstücke & Wald',['grund','wald']]];
+const TCATS=[['park','Stellplätze & Garagen',['stell','garage']],['wohn','Wohnungen',['whg','mikro','penthouse']],['haeuser','Häuser & Villen',['haus','reihenhaus','dhh','bungalow','villa','landhaus']],['mehr','Mehrfamilien- & Geschäftshäuser',['mfh','wgh','hoch']],['ferien','Ferienobjekte',['ferienwhg','ferienhaus','chalet','finca','pension']],['gewerbe','Gewerbe',['laden','buero','halle','markt','ekz']],['land','Grundstücke & Wald',['grund','wald']]];
 function typeMatch(sel,t){if(sel==='all')return true;if(sel.startsWith('g:')){const c=TCATS.find(x=>x[0]===sel.slice(2));return !!c&&c[2].includes(t);}return sel===t;}
 function yieldLine(x,val){
   const inc=x.inc||0,ex=x.exp||0,yrs=(S.day-x.day)/360,tot=val-x.basis+inc-ex;
@@ -4296,7 +4352,7 @@ function vRe(){
      (!x.san&&!x.bau&&x.sanUntil>S.day?'<br>Modernisiert, weniger Reparaturen bis '+dateOf(x.sanUntil).y:'')+
      (x.mc?'<br><b class="neg">Nachschusspflicht:</b> Die Bank fordert eine Sondertilgung von ca. '+eur(mcNeed(S,x))+' bis '+dateOf(x.mc.due).txt+'. Tilge den Kredit oder das Objekt wird zwangsversteigert.':'')+
      '<br>Monatlich nach Kosten und Rate: <span class="'+cls(cf)+'">'+sgn(cf)+'</span></div>'+
-     '<div class="acts">'+(S.props.length>1?'<button class="btn" data-act="pfold" data-id="'+x.uid+'">Zuklappen</button>':'')+(T.forst&&!x.bau?(waldCanCut(S,x)?'<button class="btn pri" data-act="wcut" data-id="'+x.uid+'">Holz verkaufen</button>':'')+'<button class="btn" data-act="wauto" data-id="'+x.uid+'">'+(x.fo&&x.fo.auto?'Ernte nur von Hand':'Ernte automatisch')+'</button>':'')+(bauOpts(S,x).length?'<button class="btn pri" data-act="bau" data-id="'+x.uid+'">Bebauen</button>':'')+(pachtOk(S,x)?'<button class="btn" data-act="pacht" data-id="'+x.uid+'">Verpachten</button>':'')+(modOk(S,x)?'<button class="btn" data-act="mod" data-id="'+x.uid+'">Nachrüsten</button>':'')+(sanOk(S,x)?'<button class="btn" data-act="san" data-id="'+x.uid+'">Instandsetzen</button>':'')+(leaseOk(x)&&!x.own&&!x.bau?(UT[x.type]?'<button class="btn" data-act="wohn" data-id="'+x.uid+'">Wohnungen</button>':'<button class="btn" data-act="mlopen" data-id="'+x.uid+'">Miete</button>'):'')+(T.own&&!x.iv?'<button class="btn" data-act="reown" data-id="'+x.uid+'">'+(x.own?'Vermieten':(ownKind(S,x)==='main'?'Selbst bewohnen':'Selbst nutzen'))+'</button>':'')+
+     '<div class="acts">'+(S.props.length>1?'<button class="btn" data-act="pfold" data-id="'+x.uid+'">Zuklappen</button>':'')+(T.forst&&!x.bau?(waldCanCut(S,x)?'<button class="btn pri" data-act="wcut" data-id="'+x.uid+'">Holz verkaufen</button>':'')+'<button class="btn" data-act="wauto" data-id="'+x.uid+'">'+(x.fo&&x.fo.auto?'Ernte nur von Hand':'Ernte automatisch')+'</button>'+(!x.wind&&!REG[x.lage].foreign?'<button class="btn" data-act="wind" data-id="'+x.uid+'">Windräder</button>':''):'')+(bauOpts(S,x).length?'<button class="btn pri" data-act="bau" data-id="'+x.uid+'">Bebauen</button>':'')+(pachtOk(S,x)?'<button class="btn" data-act="pacht" data-id="'+x.uid+'">Verpachten</button>':'')+(modOk(S,x)?'<button class="btn" data-act="mod" data-id="'+x.uid+'">Nachrüsten</button>':'')+(sanOk(S,x)?'<button class="btn" data-act="san" data-id="'+x.uid+'">Instandsetzen</button>':'')+(leaseOk(x)&&!x.own&&!x.bau?(UT[x.type]?'<button class="btn" data-act="wohn" data-id="'+x.uid+'">Wohnungen</button>':'<button class="btn" data-act="mlopen" data-id="'+x.uid+'">Miete</button>'):'')+(T.own&&!x.iv?'<button class="btn" data-act="reown" data-id="'+x.uid+'">'+(x.own?'Vermieten':(ownKind(S,x)==='main'?'Selbst bewohnen':'Selbst nutzen'))+'</button>':'')+
      (x.loan&&x.loan.due!=null?'<button class="btn pri" data-act="zbopen" data-id="'+x.uid+'">Anschlussfinanzierung</button>':'')+(x.loan?'<button class="btn" data-act="repay" data-id="'+x.uid+'">Sondertilgung</button>':'')+(x.loan&&kuendOk(S,x)?'<button class="btn" data-act="zbkd" data-id="'+x.uid+'">Kredit kündigen (§ 489)</button>':'')+
      (propBeleihRoom(S,x)>=1000?'<button class="btn" data-act="beleih" data-id="'+x.uid+'">Beleihen</button>':'')+(x.fe?'<button class="btn" data-act="feoff" data-id="'+x.uid+'">Wieder normal vermieten</button>':(!feWhy(S,x)?'<button class="btn" data-act="fe" data-id="'+x.uid+'">Ferienvermietung</button>':''))+(ivOn(S)&&!ivMoveWhy(S,x)?'<button class="btn" data-act="ivmove" data-id="'+x.uid+'">In Firma einbringen</button>':'')+'<button class="btn" data-act="resell" data-id="'+x.uid+'">Verkaufen</button></div></div>';
   });
@@ -4959,6 +5015,10 @@ function act(a,id){
   if(a==='hvser'){hvSer=id;return renderView();}
   if(a==='hvraise'){const t=hvStats(S);return dlg('Mieten erhöhen?','<p class="dn">'+t.canUp+' freie Mietverträge werden auf das gesetzlich erlaubte Maximum erhöht (Kappungsgrenze, ortsübliche Miete, Sperrfristen). Je größer der Sprung, desto eher kündigt ein Mieter.</p>',[{t:'Abbrechen'},{t:'Erhöhen',pri:true,f:()=>{const r=hvRaiseAll(S);toast(r.n+' Mieten erhöht, zusammen +'+eur(r.sum)+' im Monat'+(r.lv?', '+r.lv+' Mieter kündigen':'')+'.');commit();}}]);}
   if(a==='wcut'){const x=S.props.find(o=>o.uid===Number(id));if(!x||!x.fo)return;const nv=holzNet(S,x),erl=x.fo.fm*nv,tx=waldTax(S,x,erl);return dlg('Holz verkaufen?','<p class="dn">'+propLine(x)+'</p><div class="kv"><span>Holzmenge</span><span>'+Math.round(x.fo.fm)+' Fm</span><span>Preis je Fm</span><span>'+eur(nv)+' (Markt '+Math.round((S.holz||1)*100)+' %)</span><span>Erlös</span><span>'+eur(erl)+'</span>'+(tx?'<span>Steuern</span><span>'+eur(-tx)+'</span>':'')+'</div><p class="dn">Ein Forstunternehmen fällt die reifen Bäume, die Erntekosten sind schon abgezogen. Bei niedrigem Holzpreis lohnt es sich zu warten.</p>',[{t:'Abbrechen'},{t:'Verkaufen',pri:true,f:()=>{const r=waldCut(S,x);if(!r){derr('Gerade ist nicht genug Holz da.');return false;}dirty=true;saveLocal();toast('Holz verkauft: '+eur(r.erl));}}]);}
+  if(a==='wind'){const x=S.props.find(o=>o.uid===Number(id));if(!x)return;const why=windWhy(S,x),n=windN(x);
+    return dlg('Windräder verpachten',why?'<p class="dn">'+why+'</p><p class="dn">Windpark-Betreiber pachten Waldflächen für Windräder. Je volle 10 Hektar passt ein Windrad, höchstens '+WIND_MAX+'.</p>':
+      '<p class="dn">'+propLine(x)+'. Ein Windpark-Betreiber möchte hier '+n+' Windr'+(n===1?'ad':'äder')+' aufstellen.</p><div class="kv"><span>Pacht im Jahr</span><span>'+eur(windYear(S,x))+' ('+eur(WIND_P*S.inf)+' je Windrad)</span><span>Laufzeit</span><span>'+WIND_YRS+' Jahre, steigt mit der Inflation</span><span>Genehmigung</span><span>ca. 2 Jahre, klappt meistens (nicht immer)</span><span>Bau</span><span>ca. 9 Monate, danach beginnt die Pacht</span><span>Gerodete Fläche</span><span>'+(n*WIND_FL).toFixed(1).replace('.',',')+' ha, dort wächst kein Holz mehr</span></div><p class="dn">Dich kostet das nichts, Bau und Rückbau zahlt der Betreiber. Verkaufst du den Wald, geht der Vertrag auf den Käufer über und steigert den Preis.</p><p class="derr" id="derr"></p>',
+      why?[{t:'Schließen',pri:true}]:[{t:'Abbrechen'},{t:'Fläche anbieten',pri:true,f:()=>{const e=windStart(S,x.uid);if(e){derr(e);return false;}dirty=true;saveLocal();toast('Der Betreiber beginnt mit der Planung.');renderView();}}]);}
   if(a==='wauto'){const x=S.props.find(o=>o.uid===Number(id));if(!x||!x.fo)return;x.fo.auto=!x.fo.auto;dirty=true;saveLocal();toast(x.fo.auto?'Die Ernte läuft jetzt automatisch.':'Du entscheidest jetzt selbst, wann geerntet wird.');renderView();return;}
   if(a==='san'){const x=S.props.find(o=>o.uid===Number(id));if(!x)return;const c=sanCost(S,x);return dlg('Instandsetzen?','<p class="dn">'+propLine(x)+'. Instandsetzung erneuert Bad, Leitungen, Fassade und Böden im gleichen Standard. Neue Extras gibt es unter Nachrüsten.</p><div class="kv"><span>Kosten insgesamt</span><span>'+eur(c)+'</span><span>Dauer</span><span>3 Monate, in drei Raten</span><span>Wert danach</span><span>steigt um etwa '+eur(c*0.85)+' (zufällig 60 bis 110 % der Kosten)</span><span>Miete danach</span><span>+7 %</span><span>Reparaturen</span><span>8 Jahre lang deutlich seltener</span></div>'+(x.own?'':'<p class="dn">Während der Sanierung ist nicht vermietet, es gibt keine Miete.</p>'),[{t:'Abbrechen'},{t:'Instandsetzen',pri:true,f:()=>{const e=sanStart(S,x.uid);if(e){derr(e);return false;}dirty=true;saveLocal();toast('Instandsetzung gestartet.');}}]);}
   if(a==='fe'){const x=S.props.find(o=>o.uid===Number(id));if(!x)return;const c=feSetup(S,x),now=x.vac>0?0:rentNow(x,S),fa=feAvg(S,x),R=REG[x.lage],sea=R.sea==='ski'?'Winter (Skisaison)':(R.sea?'Sommer':'Frühling bis Herbst und Dezember');
