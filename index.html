@@ -309,7 +309,7 @@ button.chip:hover{background:var(--accent-soft);color:var(--accent)}
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f3f5f9" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0b1020" media="(prefers-color-scheme: dark)">
-<script>window.__web="120";</script>
+<script>window.__web="121";</script>
 </head>
 <body>
 <div class="wrap">
@@ -3758,6 +3758,8 @@ function monthly(S,rnd){
   runPlans(S);
   if(S.fv)fvMonth(S,money,mi);
   zbMonth(S);
+  if(S.task&&S.cash<0)S.task.minus=1;
+  if(mi===11&&S.task)taskYear(S,money);
   if(S.cash<0)money('Dispozinsen',S.cash*L.dispo/1200);
   if(S.cash<-dispoLimit(S)){
     const got=liquidate(S);if(got>0)logMsg(S,'Zwangsverwertung: Die Bank verwertet dein Vermögen, weil dein Konto weit im Minus ist ('+Math.round(got)+' € erlöst).');
@@ -3769,6 +3771,7 @@ function monthly(S,rnd){
   if(mi===11)yearEnd(S,nw);
   if(mi===11){const ny=dateOf(S.day).y+1,nn=MODELS.filter(m=>m.inv&&m.from===ny);if(nn.length)logMsg(S,'Neu im Handel '+ny+': '+nn.map(m=>m.name.replace(/ \(\d{4}\)$/,'')).join(', ')+' (Limitierte Editionen).');}
   if(nw>S.peak)S.peak=nw;
+  recMonth(S,nw);if(!S.task)taskNew(S);
   S.offers=S.offers.filter(()=>rnd()>0.25);
   gOffers(S);
   checkAch(S);
@@ -3807,7 +3810,7 @@ function yearEnd(S,nw){
   const prev=S.yrs.length?S.yrs[S.yrs.length-1].nw:(S.startNw||nw);
   S.yrs.push({y,nw,dn:prev>0?nw/prev-1:0,sec:P.sec,gold:P.gold,sach:P.sach,re:P.re,biz:P.biz,liq:P.bank+P.cash+P.vor+P.gk,debt:P.debt,
     best:ch.length?[ch[0][0],ch[0][1]]:null,worst:ch.length?[ch[ch.length-1][0],ch[ch.length-1][1]]:null,hb:held.length?[held[0][0],held[0][1]]:null,hw:held.length?[held[held.length-1][0],held[held.length-1][1]]:null,led:Object.fromEntries(Object.entries(S.ly||{}).filter(e=>Math.abs(e[1])>=1).map(e=>[e[0],Math.round(e[1])])),age:Math.floor(ageOf(S))});
-  S.ly={};S.yrPop=true;
+  S.ly={};S.yrPop=true;recSet(S,'year',nw-prev,'max');
   if(S.yrs.length>60)S.yrs.shift();S.ys=snapYs(S);
   logMsg(S,'Jahresrückblick '+y+': Vermögen '+Math.round(nw)+' €'+(prev>0?' ('+(nw>=prev?'+':'')+((nw/prev-1)*100).toFixed(1).replace('.',',')+' %)':'')+'.');
 }
@@ -3823,6 +3826,7 @@ function dayStep(S,rnd){
     r.hist.push(t.spec?Math.round(r.p*1000)/1000:r2(r.p));if(r.hist.length>240)r.hist.shift();
   }
   applyPend(S);
+  if(S.task&&S.cash<0)S.task.minus=1;
   if(S.lombard.bal>0&&S.lombard.bal>lombLimit(S))marginCall(S);
   if(S.day%10===0&&S.props.length)propMargin(S);
   for(const k in REG){
@@ -3845,10 +3849,53 @@ function dayStep(S,rnd){
   S.day++;
 }
 
+/* ---------- V121: Jahresaufgaben und Bestwerte ---------- */
+function taskRent(S){return S.props.filter(x=>!x.own&&!PT[x.type].norent&&!x.bz).reduce((a,x)=>a+(x.vac>0?0:rentNow(x,S)),0);}
+function taskDebt(S){return parts(S).debt;}
+function taskLiq(S){const P=parts(S);return P.cash+P.bank;}
+function taskSec(S){return parts(S).sec;}
+function taskBiz(S){let n=0;for(const k in S.biz||{})n+=S.biz[k]||0;for(const k in S.bizUp||{})n+=Object.keys(S.bizUp[k]||{}).length;return n;}
+function taskExp(S){const l=S.led.last||{};const e=-((l['Lebenshaltung']||0)+(l['Wohnungsmiete']||0));return e>100?e:1500*S.inf;}
+const TASKS=[
+ {id:'nw',n:'Vermögen um 10 % steigern',ok:S=>netWorth(S)>1000,cur:S=>netWorth(S),goal:(S,b)=>b*1.1},
+ {id:'rent',n:'Mieteinnahmen um 10 % steigern',ok:S=>taskRent(S)>100,cur:taskRent,goal:(S,b)=>b*1.1,m:1},
+ {id:'debt',n:'Schulden um 15 % senken',ok:S=>taskDebt(S)>5000,cur:taskDebt,goal:(S,b)=>b*0.85,down:1},
+ {id:'liq',n:'Notgroschen: drei Monatsausgaben auf Konto und Tagesgeld',ok:S=>taskLiq(S)<3*taskExp(S),cur:taskLiq,goal:(S,b)=>3*taskExp(S)},
+ {id:'sec0',n:'Erste Wertpapiere kaufen (ab 1.000 €)',ok:S=>taskSec(S)<500,cur:taskSec,goal:(S,b)=>1000*S.inf},
+ {id:'sec',n:'Wertpapier-Depot um 15 % vergrößern',ok:S=>taskSec(S)>=500,cur:taskSec,goal:(S,b)=>b*1.15},
+ {id:'buy',n:'Eine Immobilie oder ein Grundstück kaufen',ok:S=>S.cash+parts(S).bank>20000,cur:S=>S.props.length,goal:(S,b)=>b+1,cnt:1},
+ {id:'biz',n:'Einen Betrieb kaufen oder ausbauen',ok:S=>S.cash+parts(S).bank>40000,cur:taskBiz,goal:(S,b)=>b+1,cnt:1},
+ {id:'minus',n:'Das ganze Jahr nicht ins Minus rutschen',ok:S=>true,cur:S=>0,goal:()=>0,flag:1}
+];
+const TASKBY=Object.fromEntries(TASKS.map(t=>[t.id,t]));
+function taskRew(S){return Math.round(Math.max(500*S.inf,Math.min(25000*S.inf,netWorth(S)*0.01))/100)*100;}
+function taskNew(S){const y=dateOf(S.day+1).y,el=TASKS.filter(t=>t.ok(S));
+  el.sort((a,b)=>((y*31+TASKS.indexOf(a)*17+(S.resets||0)*7)%13)-((y*31+TASKS.indexOf(b)*17+(S.resets||0)*7)%13));
+  const r=taskRew(S);S.task={y,minus:0,list:el.slice(0,3).map(t=>{const b=t.cur(S);return {id:t.id,b,g:t.goal(S,b),r};})};}
+function taskDone(S,e){const t=TASKBY[e.id];if(!t)return false;if(t.flag)return !S.task.minus;const c=t.cur(S);return t.down?c<=e.g+0.5:c>=e.g-0.5;}
+function taskProg(S,e){const t=TASKBY[e.id];if(!t)return 0;if(t.flag)return S.task.minus?0:1;const c=t.cur(S);if(t.down)return Math.max(0,Math.min(1,(e.b-c)/Math.max(1,e.b-e.g)));return Math.max(0,Math.min(1,(c-e.b)/Math.max(1e-9,e.g-e.b)));}
+function taskYear(S,money){const T=S.task;if(!T)return;let n=0;
+  for(const e of T.list){if(taskDone(S,e)){e.ok=1;n++;money('Belohnung Jahresaufgaben',e.r);}}
+  S.taskN=S.taskN||{ok:0,all:0};S.taskN.ok+=n;S.taskN.all+=T.list.length;recSet(S,'tasks',S.taskN.ok,'max');
+  logMsg(S,'Jahresaufgaben '+T.y+': '+n+' von '+T.list.length+' geschafft'+(n?', Belohnung '+Math.round(T.list.filter(e=>e.ok).reduce((a,e)=>a+e.r,0))+' €':'')+'.');
+  S.taskLast={y:T.y,list:T.list.map(e=>({id:e.id,ok:!!e.ok,r:e.r}))};S.task=null;}
+const REC=[['peak','Höchstes Vermögen','eur','max'],['mio','Erste Million nach','yrs','min'],['year','Bestes Jahr (Zuwachs)','eur','max'],['props','Meiste Immobilien gleichzeitig','n','max'],
+ ['rent','Höchste Miet- und Pachteinnahmen im Monat','eur','max'],['biz','Meiste Filialen','n','max'],['firm','Größte eigene Firma','ma','max'],['tasks','Geschaffte Jahresaufgaben','n','max']];
+function recSet(S,k,v,how){if(!Number.isFinite(v))return;S.rec=S.rec||{};S.rrec=S.rrec||{};const now={v,d:S.day,r:(S.resets||0)+1};
+  for(const o of [S.rrec,S.rec]){const c=o[k];if(!c||(how==='min'?v<c.v:v>c.v))o[k]=Object.assign({},now);}}
+function recMonth(S,nw){const l=S.led.last||{};
+  recSet(S,'peak',Math.max(nw,S.peak||0),'max');
+  if(nw>=1e6&&(S.startNw||0)<1e6&&!(S.rrec&&S.rrec.mio))recSet(S,'mio',Math.round(S.day/36)/10,'min');
+  if(S.props.length)recSet(S,'props',S.props.length,'max');
+  const r=(l['Mieteinnahmen']||0)+(l['Pachteinnahmen']||0);if(r>0)recSet(S,'rent',r,'max');
+  let f=0;for(const k in S.biz||{})f+=S.biz[k]||0;if(f)recSet(S,'biz',f,'max');
+  if(S.firm&&S.firm.emp)recSet(S,'firm',S.firm.emp,'max');
+  if(S.yrs&&S.yrs.length&&!(S.rrec&&S.rrec.year))for(let i=0;i<S.yrs.length;i++){const p=i?S.yrs[i-1].nw:(S.startNw||0);recSet(S,'year',S.yrs[i].nw-p,'max');}}
+
 /* ---------- Ruhestand ---------- */
 function retireGame(S,now){
   const g=pendingPrestige(S);if(g<1)return null;
-  const ns=newGame(S.level,S.P+g,S.resets+1,now,null,S.startJob,S.startMul,S.startCash,S.startOpts);ns.ach=S.ach;return ns;
+  const ns=newGame(S.level,S.P+g,S.resets+1,now,null,S.startJob,S.startMul,S.startCash,S.startOpts);ns.ach=S.ach;ns.rec=S.rec||{};return ns;
 }
 
 /* ---------- Formatierung ---------- */
@@ -3867,7 +3914,7 @@ function pc(x,d){d=d==null?2:d;return x.toLocaleString('de-DE',{minimumFractionD
 
 const KEY='vermoegensfabrik-v2';
 // Versionsnummer, bei jeder Veröffentlichung hochzählen (bauen-web.sh liest sie hier)
-const VF_VERSION='120';
+const VF_VERSION='121';
 const $=id=>document.getElementById(id);
 const TAB_ICONS={
   uebers:'M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z',
@@ -4769,10 +4816,29 @@ function vLife(){
   }
   return h+'</section>';
 }
+function taskVal(e,v){const t=TASKBY[e.id];return t&&t.cnt?String(Math.round(v)):eur(v);}
+function taskRows(){const T=S.task;if(!T)return '<p class="note">Die neuen Aufgaben kommen zum Monatsende.</p>';
+  return T.list.map(e=>{const t=TASKBY[e.id];if(!t)return '';const d=taskDone(S,e),pg=taskProg(S,e);
+    const det=t.flag?(S.task.minus?'<span class="neg">Konto war im Minus, nicht mehr zu schaffen</span>':'bisher nie im Minus'):'jetzt '+taskVal(e,t.cur(S))+', Ziel '+(t.down?'höchstens ':'')+taskVal(e,e.g);
+    return '<div class="ach'+(d?' on':'')+'"><span class="ai">'+(d?'✓':'○')+'</span><b>'+t.n+'</b><span class="ad">'+det+' · Belohnung '+eur(e.r)+'</span><div style="height:6px;border-radius:3px;background:rgba(127,127,127,.18);margin-top:6px;overflow:hidden"><div style="height:100%;width:'+Math.round(pg*100)+'%;background:var(--pos,#16a34a)"></div></div></div>';}).join('');}
+function recFmt(r,v){return r[2]==='eur'?eur(v):r[2]==='yrs'?String(v).replace('.',',')+' Jahren':r[2]==='ma'?Math.round(v)+' Mitarbeiter':String(Math.round(v));}
+function taskBox(){const T=S.task,L=S.taskLast;
+  let h='<section class="nofold"><h2>Jahresaufgaben'+(T?' '+T.y:'')+'</h2><div class="pad"><p class="note" style="margin:0 0 10px">Jedes Jahr drei Aufgaben. Was du bis zum Jahresende schaffst, wird mit Geld belohnt.</p><div class="achl">'+taskRows()+'</div>';
+  if(L)h+='<p class="note" style="margin:10px 0 0">'+L.y+': '+L.list.filter(e=>e.ok).length+' von '+L.list.length+' geschafft.'+(S.taskN?' Insgesamt '+S.taskN.ok+' von '+S.taskN.all+'.':'')+'</p>';
+  return h+'</div></section>';}
+function recSec(){const R=S.rec||{},RR=S.rrec||{};const rows=REC.filter(r=>R[r[0]]);
+  let h='<section class="nofold"><h2>Bestwerte</h2><div class="pad">';
+  if(!rows.length)return h+'<p class="note" style="margin:0">Noch keine. Bestwerte entstehen beim Spielen und bleiben auch nach dem Ruhestand erhalten.</p></div></section>';
+  h+='<p class="note" style="margin:0 0 10px">Deine Rekorde über alle Läufe (Ruhestand eingeschlossen) und im aktuellen Lauf.</p><div class="kv">';
+  rows.forEach(r=>{const a=R[r[0]],b=RR[r[0]],same=b&&a.r===b.r&&a.v===b.v;
+    h+='<span>'+r[1]+'</span><span><b>'+recFmt(r,a.v)+'</b>'+(same&&a.r===(S.resets||0)+1?' <span class="pos">(in diesem Lauf)</span>':' (Lauf '+a.r+', '+dateOf(a.d).y+')')+(b&&!same?'<br><span class="dn">dieser Lauf: '+recFmt(r,b.v)+'</span>':'')+'</span>';});
+  return h+'</div></div></section>';}
+function taskMini(){const T=S.task;if(!T)return '';const n=T.list.filter(e=>taskDone(S,e)).length;
+  return '<section class="nofold fpmini"><div class="fpnext"><small>Jahresaufgaben '+T.y+' · '+n+' von '+T.list.length+' erfüllt</small><b>'+T.list.map(e=>(taskDone(S,e)?'✓ ':'○ ')+(TASKBY[e.id]?TASKBY[e.id].n:'')).join('<br>')+'</b><div class="acts" style="margin-top:4px"><button class="btn" data-act="gotab" data-id="erf">Details und Bestwerte</button></div></div></section>';}
 function vAch(){
   const nA=Object.keys(S.ach).length;
   const f=S.ui.sub.erf||'alle',L=ACH.filter(a=>f==='alle'||(f==='on')===!!S.ach[a[0]]);
-  let h='<section class="nofold"><h2>Erfolge ('+nA+' von '+ACH.length+')</h2><div class="chips">'+[['alle','Alle'],['off','Offen ('+(ACH.length-nA)+')'],['on','Geschafft ('+nA+')']].map(c=>'<button type="button" class="chip" data-act="subtab" data-id="'+c[0]+'" aria-pressed="'+(f===c[0])+'">'+c[1]+'</button>').join('')+'</div><div class="achl">'+(L.length?'':'<p class="note">Noch keine.</p>')+L.map(a=>{const on=S.ach[a[0]];return '<div class="ach'+(on?' on':'')+'"><span class="ai">'+(on?'✓':'○')+'</span><b>'+a[1]+'</b><span class="ad">'+a[2]+'</span></div>';}).join('')+'</div></section>';
+  let h=taskBox()+recSec()+'<section class="nofold"><h2>Erfolge ('+nA+' von '+ACH.length+')</h2><div class="chips">'+[['alle','Alle'],['off','Offen ('+(ACH.length-nA)+')'],['on','Geschafft ('+nA+')']].map(c=>'<button type="button" class="chip" data-act="subtab" data-id="'+c[0]+'" aria-pressed="'+(f===c[0])+'">'+c[1]+'</button>').join('')+'</div><div class="achl">'+(L.length?'':'<p class="note">Noch keine.</p>')+L.map(a=>{const on=S.ach[a[0]];return '<div class="ach'+(on?' on':'')+'"><span class="ai">'+(on?'✓':'○')+'</span><b>'+a[1]+'</b><span class="ad">'+a[2]+'</span></div>';}).join('')+'</div></section>';
   return h;
 }
 
@@ -4901,7 +4967,7 @@ function renderView(){
   // Seitlich verschobene Leisten (Unterreiter) behalten ihre Stellung, solange Seite und Auswahl gleich bleiben.
   // Sonst springt die Leiste bei jedem Neuzeichnen (im laufenden Spiel mehrmals pro Sekunde) an den Anfang zurück.
   const bk=tab+'|'+(S.ui.sub[tab]||''),bl=barKey===bk?[...v.querySelectorAll('.subtabs')].map(b=>b.scrollLeft):null;
-  v.innerHTML=mb+decCard()+(tab==='uebers'?fpMini():'')+map[tab]();
+  v.innerHTML=mb+decCard()+(tab==='uebers'?fpMini()+taskMini():'')+map[tab]();
   enhance(v);
   if(bl)v.querySelectorAll('.subtabs').forEach((b,i)=>{if(bl[i]!=null)b.scrollLeft=bl[i];});barKey=bk;
   if(tab==='rente')drawVor($('cvVor'));
