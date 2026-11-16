@@ -309,7 +309,7 @@ button.chip:hover{background:var(--accent-soft);color:var(--accent)}
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f3f5f9" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0b1020" media="(prefers-color-scheme: dark)">
-<script>window.__web="125";</script>
+<script>window.__web="126";</script>
 </head>
 <body>
 <div class="wrap">
@@ -3938,7 +3938,7 @@ function pc(x,d){d=d==null?2:d;return x.toLocaleString('de-DE',{minimumFractionD
 
 const KEY='vermoegensfabrik-v2';
 // Versionsnummer, bei jeder Veröffentlichung hochzählen (bauen-web.sh liest sie hier)
-const VF_VERSION='125';
+const VF_VERSION='126';
 const $=id=>document.getElementById(id);
 const TAB_ICONS={
   uebers:'M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z',
@@ -4387,7 +4387,7 @@ function waldInfo(x){
    '<br>Bisher: Holzverkauf '+eur(f.hv)+' · Jagdpacht '+eur(f.jg)+' · Förderung '+eur(f.fz)+(f.sch?' · '+f.sch+' Schadereignis(se)':'')+
    '<br><span class="dn">Risiko: Stürme (vor allem im Winter) und Borkenkäfer (im Sommer, besonders im Nadelwald) zerstören Teile des Waldes.</span>';
 }
-let rsel={reg:'A',type:'all',sort:'pa',bsort:'neu'};
+let rsel={reg:'A',type:'all',sort:'pa',bsort:'neu',btype:'all'};
 const TCATS=[['park','Stellplätze & Garagen',['stell','garage']],['wohn','Wohnungen',['whg','mikro','penthouse']],['haeuser','Häuser & Villen',['haus','reihenhaus','dhh','bungalow','villa','landhaus']],['mehr','Mehrfamilien- & Geschäftshäuser',['mfh','wgh','hoch']],['ferien','Ferienobjekte',['ferienwhg','ferienhaus','chalet','finca','pension']],['gewerbe','Gewerbe',['laden','buero','halle','markt','ekz']],['grund','Baugrundstücke',['grund']],['wald','Waldgrundstücke',['wald']],['acker','Ackerland',['acker']]];
 function typeMatch(sel,t){if(sel==='all')return true;if(sel.startsWith('g:')){const c=TCATS.find(x=>x[0]===sel.slice(2));return !c||c[2].includes(t);}return sel===t;}
 function yieldLine(x,val){
@@ -4572,11 +4572,21 @@ function vRe(){
   const bcf=x=>(x.vac>0||x.own?0:rentNow(x,S))+landInc(S,x)-maintYear(S,x)/12-(x.loan?x.loan.pay:0),bval=x=>propValue(x,S);
   const BS={neu:['Zuletzt gekauft',(a,b)=>b.day-a.day||b.uid-a.uid],alt:['Zuerst gekauft',(a,b)=>a.day-b.day||a.uid-b.uid],wh:['Wert, höchster zuerst',(a,b)=>bval(b)-bval(a)],wl:['Wert, niedrigster zuerst',(a,b)=>bval(a)-bval(b)],sh:['Restschuld, höchste zuerst',(a,b)=>(b.loan?b.loan.bal:0)-(a.loan?a.loan.bal:0)],sl:['Restschuld, niedrigste zuerst',(a,b)=>(a.loan?a.loan.bal:0)-(b.loan?b.loan.bal:0)],cf:['Monatlicher Überschuss, höchster zuerst',(a,b)=>bcf(b)-bcf(a)],ge:['Gesamtertrag in %, höchster zuerst',(a,b)=>((bval(b)-b.basis+(b.inc||0)-(b.exp||0))/b.basis)-((bval(a)-a.basis+(a.inc||0)-(a.exp||0))/a.basis)],ty:['Typ',(a,b)=>PT[a.type].name.localeCompare(PT[b.type].name)||bval(b)-bval(a)],rg:['Region',(a,b)=>REG[a.lage].name.localeCompare(REG[b.lage].name)||bval(b)-bval(a)]};
   if(!BS[rsel.bsort])rsel.bsort='neu';
+  // V126: Bestand nach Typ filtern (nur Typen, die man besitzt)
+  const bcnt={};S.props.forEach(x=>{bcnt[x.type]=(bcnt[x.type]||0)+1;});
+  if(!S.props.some(x=>typeMatch(rsel.btype,x.type)))rsel.btype='all';
+  const bgr=TCATS.filter(c=>c[2].some(t=>bcnt[t])),bty=Object.keys(bcnt).sort((x,y)=>PT[x].name.localeCompare(PT[y].name));
+  if(S.props.length>1&&bty.length>1)h+='<label class="dl" for="selBT">Typ</label><select id="selBT" class="inp"><option value="all"'+(rsel.btype==='all'?' selected':'')+'>Alle Typen ('+S.props.length+')</option>'+
+    (bgr.length>1?'<optgroup label="Gruppen">'+bgr.map(c=>{const n=c[2].reduce((a,t)=>a+(bcnt[t]||0),0);return '<option value="g:'+c[0]+'"'+(rsel.btype==='g:'+c[0]?' selected':'')+'>'+c[1]+' ('+n+')</option>';}).join('')+'</optgroup>':'')+
+    '<optgroup label="Einzelne Typen">'+bty.map(k=>'<option value="'+k+'"'+(rsel.btype===k?' selected':'')+'>'+PT[k].name+' ('+bcnt[k]+')</option>').join('')+'</optgroup></select>';
+  const bshow=S.props.filter(x=>typeMatch(rsel.btype,x.type));
+  if(rsel.btype!=='all'){const v=bshow.reduce((a,x)=>a+propValue(x,S),0),d=bshow.reduce((a,x)=>a+(x.loan?x.loan.bal:0),0),m=bshow.reduce((a,x)=>a+bcf(x),0);
+    h+='<p class="note pad" id="btsum">Gezeigt: '+bshow.length+' von '+S.props.length+' · Wert '+eur(v)+' · Restschuld '+eur(d)+' · monatlich <span class="'+cls(m)+'">'+sgn(m)+'</span> <button class="btn" data-act="btall">Alle zeigen</button></p>';}
   if(S.props.length>1)h+='<label class="dl" for="selBS">Sortierung</label><select id="selBS" class="inp">'+Object.keys(BS).map(k=>'<option value="'+k+'"'+(rsel.bsort===k?' selected':'')+'>'+BS[k][0]+'</option>').join('')+'</select>';
   if(hvOn(S)||S.props.some(x=>leaseOk(x)&&!x.own))h+='<div class="acts pad" style="padding-top:8px">'+(hvOn(S)?'<button class="btn pri" data-act="hvpage">Hausverwaltung öffnen</button>':'')+'<button class="btn" data-act="hvopen">'+(hvOn(S)?'Vorgaben':'Hausverwaltung: Vorgaben')+'</button></div>';
   if(S.props.length>1){const allC=S.props.every(x=>S.pfold[x.uid]);h+='<div class="acts pad" style="padding-top:8px"><button class="btn" data-act="pfoldall" data-id="'+(allC?'open':'close')+'">'+(allC?'Alle aufklappen':'Alle zuklappen')+'</button></div>';}
   S.props.forEach(x=>ensureUnits(S,x));
-  S.props.slice().sort(BS[rsel.bsort][1]).forEach(x=>{
+  bshow.sort(BS[rsel.bsort][1]).forEach(x=>{
     const R=REG[x.lage],T=PT[x.type],val=propValue(x,S),rent=x.own?0:rentNow(x,S),maint=maintYear(S,x)/12,c=propSellCalc(S,x);
     const mkl=propLoans(S,x),cf=(x.vac>0?0:rent)+(pachtOn(S,x)?x.pacht.r:0)+landInc(S,x)-maint-(x.loan?x.loan.pay:0)-mkl.reduce((t,l)=>t+l.pay,0);
     if(S.pfold[x.uid]){h+='<div class="row"><div><span class="name">'+propLine(x)+'</span><span class="tag">'+R.name+'</span></div><div class="val">'+eur(val)+'</div><div class="meta">'+(x.iv?'Firma · ':'')+(x.bau?'Im Bau · ':(x.own?'Selbst genutzt · ':''))+(x.loan?'Restschuld '+eur(x.loan.bal)+' · ':'Schuldenfrei · ')+'monatlich <span class="'+cls(cf)+'">'+sgn(cf)+'</span></div><div class="acts"><button class="btn" data-act="pfold" data-id="'+x.uid+'">Aufklappen</button></div></div>';return;}
@@ -5177,6 +5187,7 @@ function vPlan(){
 function commit(){dirty=true;saveLocal();updateHeader();renderView();}
 function act(a,id){
   if(a==='pfold'){const u=+id;if(S.pfold[u])delete S.pfold[u];else S.pfold[u]=1;return commit();}
+  if(a==='btall'){rsel.btype='all';return renderView();}
   if(a==='pfoldall'){S.pfold={};if(id==='close')S.props.forEach(x=>{S.pfold[x.uid]=1;});return commit();}
   if(a==='foldall'){const gm=groupModels(MODELS.filter(m=>m.cat===sel.cat&&m.brand===sel.brand&&invAvail(S,m)),sel.brand);gm.ord.forEach(k=>{S.ui.o['s'+sel.cat+sel.brand+k]=(id==='open');});return renderView();}
   if(a==='taskoff'||a==='taskon')return taskSet(a==='taskon');
@@ -5923,7 +5934,7 @@ function start(data){
   buildTabs();
   tabs.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.tab==='mehr'&&narrow())return openMore();tab=b.dataset.tab==='mehr'?(MORE.includes(S&&S.ui.sub.mehr)?S.ui.sub.mehr:'stat'):b.dataset.tab;tabs.querySelectorAll('button').forEach(x=>x.setAttribute('aria-selected',x===b?'true':'false'));renderView();window.scrollTo(0,0);const v=$('view');v.classList.remove('enter');void v.offsetWidth;v.classList.add('enter');b.scrollIntoView({block:'nearest',inline:'nearest'});});
   $('view').addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b||b.disabled)return;act.x=e.clientX;act.y=e.clientY;act(b.dataset.act,b.dataset.id);});
-  $('view').addEventListener('change',e=>{if(e.target.id==='selBrand'){sel.brand=e.target.value;renderView();}if(e.target.id==='selReg'){rsel.reg=e.target.value;renderView();}if(e.target.id==='selBS'){rsel.bsort=e.target.value;renderView();}if(e.target.id==='selType'){rsel.type=e.target.value;renderView();}if(e.target.id==='selSort'){rsel.sort=e.target.value;renderView();}});
+  $('view').addEventListener('change',e=>{if(e.target.id==='selBrand'){sel.brand=e.target.value;renderView();}if(e.target.id==='selReg'){rsel.reg=e.target.value;renderView();}if(e.target.id==='selBS'){rsel.bsort=e.target.value;renderView();}if(e.target.id==='selBT'){rsel.btype=e.target.value;renderView();}if(e.target.id==='selType'){rsel.type=e.target.value;renderView();}if(e.target.id==='selSort'){rsel.sort=e.target.value;renderView();}});
   $('speed').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;speed=Number(b.dataset.s);$('speed').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b?'true':'false'));});
   {const v=$('view'),inBar=e=>!!(e.target&&e.target.closest&&e.target.closest('.subtabs'));
    v.addEventListener('scroll',e=>{if(e.target&&e.target.classList&&e.target.classList.contains('subtabs'))barMoved=performance.now();},true);
